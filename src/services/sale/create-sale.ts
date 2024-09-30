@@ -38,17 +38,24 @@ export class CreateSaleService {
 
         const productsIds = items.map((item) => item.productId);
 
+        // Buscar todos os produtos, incluindo inativos
         const products = await this.productRepository.findManyByIds(productsIds);
+        console.log("todos os produtos: " + productsIds);
 
-        if (products.length !== productsIds.length) {
-            throw new Error('Product not found');
+        // Verificar se todos os produtos foram encontrados
+        const notFoundProducts = productsIds.filter(id => !products.find(product => product.id === id));
+        if (notFoundProducts.length > 0) {
+            console.log("todos os produtos: " + productsIds);
+            console.log("produtos não encontrado: " + notFoundProducts);
+            throw new Error('Product not found' + { productsIds });
         }
 
-        products.forEach((product) => {
+        // Verificar se os produtos estão ativos e se há estoque suficiente
+        for (const product of products) {
             const correspondingItem = items.find(item => item.productId === product.id);
 
             if (!product.is_active) {
-                throw new Error(`Product ${product.name} does not exist or is inactive`);
+                throw new Error(`Product ${product.name} is inactive`);
             }
 
             if (product.quantity_in_stock == null) {
@@ -58,7 +65,7 @@ export class CreateSaleService {
             if (product.quantity_in_stock < correspondingItem!.quantity) {
                 throw new Error(`Insufficient stock for product ${product.name}`);
             }
-        });
+        }
 
         const createdItems = await Promise.all(
             items.map(async (item) => {
@@ -86,4 +93,4 @@ export class CreateSaleService {
             items: createdItems
         };
     }
-}
+}    

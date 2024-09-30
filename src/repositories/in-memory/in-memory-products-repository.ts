@@ -12,7 +12,7 @@ export class InMemoryProductsRepository implements ProductRepository {
         price: number;
         quantity_in_stock: number | null;
         batch: string | null;
-        supplierId: string;
+        //supplierId: string;
         is_active: boolean | null;
         createdAt: Date;
         updatedAt: Date;
@@ -28,7 +28,7 @@ export class InMemoryProductsRepository implements ProductRepository {
             price: data.price,
             quantity_in_stock: data.quantity_in_stock ?? null,
             batch: data.batch ?? null,
-            supplierId: data.supplierId,  // Certifique-se de que este campo esteja presente
+            //supplierId: data.supplierId,  // Certifique-se de que este campo esteja presente
             is_active: data.is_active ?? true, // Usa o valor fornecido ou padrão para ativo
             createdAt: now,
             updatedAt: now,
@@ -65,9 +65,11 @@ export class InMemoryProductsRepository implements ProductRepository {
         return product;
     }
 
-    findManyByIds(ids: string[]): Promise<Product[]> {
-        throw new Error("Method not implemented.");
-    }
+    async findManyByIds(ids: string[]): Promise<Product[]> {
+        // Retorna todos os produtos que correspondem aos IDs, independentemente do status de atividade
+        return this.items.filter(item => ids.includes(item.id));
+    }    
+    
 
     async reduceStock(productId: string, quantity: number): Promise<void> {
         const product = await this.findById(productId);
