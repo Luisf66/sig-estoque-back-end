@@ -40,7 +40,7 @@ describe('Create Sale Service', () => {
     });
 
     // Debug: Exibir informações dos produtos criados
-    console.log("Produtos criados:", product1, product2);
+    //console.log("Produtos criados:", product1, product2);
 
     const { newSale, items } = await sut.handle({
       nf_number: 'NF123456',
@@ -71,7 +71,7 @@ describe('Create Sale Service', () => {
     const updatedProduct2 = await productRepository.findById(product2.id);
 
     // Debug: Exibir informações dos produtos atualizados
-    console.log("Produtos atualizados:", updatedProduct1, updatedProduct2);
+    //console.log("Produtos atualizados:", updatedProduct1, updatedProduct2);
 
     expect(updatedProduct1?.quantity_in_stock).toBe(8);
     expect(updatedProduct2?.quantity_in_stock).toBe(4);
@@ -105,7 +105,7 @@ describe('Create Sale Service', () => {
     });
 
     // Debug: Exibir informações do produto inativo
-    console.log("Produto inativo criado:", inactiveProduct);
+    //console.log("Produto inativo criado:", inactiveProduct);
 
     await expect(() =>
       sut.handle({
@@ -161,7 +161,7 @@ describe('Create Sale Service', () => {
     });
 
     // Debug: Exibir informações do produto com estoque insuficiente
-    console.log("Produto criado com estoque insuficiente:", product);
+    //console.log("Produto criado com estoque insuficiente:", product);
 
     await expect(() =>
       sut.handle({

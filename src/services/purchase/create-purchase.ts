@@ -43,10 +43,15 @@ export class CreatePurchaseService {
         });
 
         const productsIds = items.map((item) => item.productId);
+        //console.log("Id dos produtos: " + productsIds);
 
         const products = await this.productRepository.findManyByIds(productsIds);
+        //console.log("Produtos: " + products);
+        //console.log("todos os produtos: " + productsIds);
 
         if (products.length !== productsIds.length) {
+            //console.log("Produtos: " + products);
+            //console.log("IDs: " + productsIds);
             throw new Error('Product not found');
         }
 

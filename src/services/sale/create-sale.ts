@@ -40,13 +40,13 @@ export class CreateSaleService {
 
         // Buscar todos os produtos, incluindo inativos
         const products = await this.productRepository.findManyByIds(productsIds);
-        console.log("todos os produtos: " + productsIds);
+        //console.log("todos os produtos: " + productsIds);
 
         // Verificar se todos os produtos foram encontrados
         const notFoundProducts = productsIds.filter(id => !products.find(product => product.id === id));
         if (notFoundProducts.length > 0) {
-            console.log("todos os produtos: " + productsIds);
-            console.log("produtos não encontrado: " + notFoundProducts);
+            //console.log("todos os produtos: " + productsIds);
+            //console.log("produtos não encontrado: " + notFoundProducts);
             throw new Error('Product not found' + { productsIds });
         }
 

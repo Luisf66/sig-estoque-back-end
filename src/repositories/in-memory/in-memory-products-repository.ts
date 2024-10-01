@@ -28,7 +28,7 @@ export class InMemoryProductsRepository implements ProductRepository {
             price: data.price,
             quantity_in_stock: data.quantity_in_stock ?? null,
             batch: data.batch ?? null,
-            //supplierId: data.supplierId,  // Certifique-se de que este campo esteja presente
+            //supplierId: data.supplier.connect?.id ?? randomUUID(),  // Certifique-se de que este campo esteja presente
             is_active: data.is_active ?? true, // Usa o valor fornecido ou padrão para ativo
             createdAt: now,
             updatedAt: now,
@@ -65,10 +65,20 @@ export class InMemoryProductsRepository implements ProductRepository {
         return product;
     }
 
+    // async findManyByIds(ids: string[]): Promise<Product[]> {
+    //     // Retorna todos os produtos que correspondem aos IDs, independentemente do status de atividade
+    //     return this.items.filter(item => ids.includes(item.id));
+    // }    
+
     async findManyByIds(ids: string[]): Promise<Product[]> {
         // Retorna todos os produtos que correspondem aos IDs, independentemente do status de atividade
-        return this.items.filter(item => ids.includes(item.id));
-    }    
+        //console.log("Procurando pelos IDs:", ids);
+        //console.log("Produtos disponíveis no repositório:", this.items);
+        const result = this.items.filter((item) => ids.includes(item.id));
+        //console.log("Produtos encontrados:", result);
+        return result;
+    }  
+    
     
 
     async reduceStock(productId: string, quantity: number): Promise<void> {
@@ -86,8 +96,19 @@ export class InMemoryProductsRepository implements ProductRepository {
         product.updatedAt = new Date();
     }
 
-    increaseStock(productId: string, quantity: number): Promise<void> {
-        throw new Error("Method not implemented.");
+    async increaseStock(productId: string, quantity: number): Promise<void> {
+        const product = await this.findById(productId);
+    
+        if (!product) {
+            throw new ResourceNotFoundError();
+        }
+    
+        if (product.quantity_in_stock === null) {
+            throw new Error("Stock quantity is undefined");
+        }
+    
+        product.quantity_in_stock += quantity;
+        product.updatedAt = new Date();
     }
     
     async patch(id: string, data: Prisma.ProductUpdateInput): Promise<Product | null> {
