@@ -186,3 +186,5 @@ test/https/fastify.key
 .svelte-kit
 
 # End of https://www.toptal.com/developers/gitignore/api/node
+# stryker temp files
+.stryker-tmp
