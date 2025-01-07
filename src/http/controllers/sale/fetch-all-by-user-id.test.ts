@@ -1,54 +1,107 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { fetchAllSaleByUserId } from './fetch-all-by-user-id';
-import * as makeFetchAllSaleByUserIdServiceModule from '../../../services/factories/sale/make-fetch-all-sale-by-user-id';
+import { describe, it, expect, vi } from "vitest";
+import { fetchAllSaleByUserId } from "./fetch-all-by-user-id";
+import { FastifyRequest, FastifyReply } from "fastify";
+import { makeFetchAllSaleByUserIdService } from "../../../services/factories/sale/make-fetch-all-sale-by-user-id";
 
-test('should fetch all sales for a valid userId', async () => {
-    const app = fastify();
+vi.mock("../../../services/factories/sale/make-fetch-all-sale-by-user-id");
 
-    app.get('/sales/:userId', fetchAllSaleByUserId);
-
+describe("fetchAllSaleByUserId Controller", () => {
+  it("deve retornar todas as vendas de um usuário com sucesso", async () => {
     const mockFetchAllSaleByUserIdService = {
-        execute: vi.fn().mockResolvedValue({
-            sales: [
-                { id: 'sale-1', nf_number: '123', userId: 'user-id', items: [] },
-                { id: 'sale-2', nf_number: '456', userId: 'user-id', items: [] }
-            ]
-        }),
-    };
-
-    vi.spyOn(makeFetchAllSaleByUserIdServiceModule, 'makeFetchAllSaleByUserIdService').mockReturnValue(mockFetchAllSaleByUserIdService);
-
-    const response = await app.inject({
-        method: 'GET',
-        url: '/sales/user-id',
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({
+      execute: vi.fn().mockResolvedValue({
         sales: [
-            { id: 'sale-1', nf_number: '123', userId: 'user-id', items: [] },
-            { id: 'sale-2', nf_number: '456', userId: 'user-id', items: [] }
-        ]
-    });
-});
-
-test('should handle service errors', async () => {
-    const app = fastify();
-
-    app.get('/sales/:userId', fetchAllSaleByUserId);
-
-    const mockFetchAllSaleByUserIdService = {
-        execute: vi.fn().mockRejectedValue(new Error('Service error')),
+          { id: "sale-1", nf_number: "NF123", userId: "user-1" },
+          { id: "sale-2", nf_number: "NF124", userId: "user-1" },
+        ],
+      }),
     };
 
-    vi.spyOn(makeFetchAllSaleByUserIdServiceModule, 'makeFetchAllSaleByUserIdService').mockReturnValue(mockFetchAllSaleByUserIdService);
+    vi.mocked(makeFetchAllSaleByUserIdService).mockReturnValue(mockFetchAllSaleByUserIdService);
 
-    const response = await app.inject({
-        method: 'GET',
-        url: '/sales/user-id',
+    const request = {
+      params: {
+        userId: "user-1",
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await fetchAllSaleByUserId(request, reply);
+
+    expect(mockFetchAllSaleByUserIdService.execute).toHaveBeenCalledWith({
+      userId: "user-1",
     });
+    expect(reply.code).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
+      sales: [
+        { id: "sale-1", nf_number: "NF123", userId: "user-1" },
+        { id: "sale-2", nf_number: "NF124", userId: "user-1" },
+      ],
+    });
+  });
 
-    expect(response.statusCode).toBe(500);
-    expect(response.json().message).toBe('Internal Server Error');
+  it("deve retornar erro 500 em caso de erro inesperado", async () => {
+    const mockFetchAllSaleByUserIdService = {
+      execute: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
+    };
+
+    vi.mocked(makeFetchAllSaleByUserIdService).mockReturnValue(mockFetchAllSaleByUserIdService);
+
+    const request = {
+      params: {
+        userId: "user-1",
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await fetchAllSaleByUserId(request, reply);
+
+    expect(reply.code).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "Internal Server Error",
+    });
+  });
+
+  it("deve retornar erro 500 se o parâmetro userId estiver ausente", async () => {
+    const mockFetchAllSaleByUserIdService = {
+      execute: vi.fn().mockImplementation(({ userId }) => {
+        if (!userId) {
+          throw new Error("Parâmetro userId ausente");
+        }
+      }),
+    };
+  
+    vi.mocked(makeFetchAllSaleByUserIdService).mockReturnValue(mockFetchAllSaleByUserIdService);
+  
+    const request = {
+      params: {}, // Parâmetro userId ausente
+    } as unknown as FastifyRequest;
+  
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+  
+    await fetchAllSaleByUserId(request, reply);
+  
+    // Garantir que o serviço foi chamado apenas com userId definido
+    expect(mockFetchAllSaleByUserIdService.execute).toHaveBeenCalledTimes(1);
+    expect(mockFetchAllSaleByUserIdService.execute).toHaveBeenCalledWith({
+      userId: undefined, // Verifica se foi chamado com undefined
+    });
+  
+    // Validar o retorno do erro
+    expect(reply.code).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "Internal Server Error",
+    });
+  });
+  
 });

@@ -1,32 +1,36 @@
-import { beforeEach, describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { DeleteSupplierService } from "./delete-supplier";
-import { InMemorySuppliersRepository } from "../../repositories/in-memory/in-memory-supplier-repository";
+import { SupplierRepository } from "../../repositories/supplier-repository";
 import { NoRecordsFoundError } from "../errors/no-records-found-error";
 
-let supplierRepository: InMemorySuppliersRepository;
-let sut: DeleteSupplierService;
+describe("DeleteSupplierService", () => {
+  let mockSupplierRepository: SupplierRepository;
+  let deleteSupplierService: DeleteSupplierService;
 
-describe('Delete Supplier Service', () => {
   beforeEach(() => {
-    supplierRepository = new InMemorySuppliersRepository();
-    sut = new DeleteSupplierService(supplierRepository);
+    mockSupplierRepository = {
+      delete: vi.fn(),
+    } as unknown as SupplierRepository;
+
+    deleteSupplierService = new DeleteSupplierService(mockSupplierRepository);
   });
 
-  it('should be able to delete a supplier by ID', async () => {
-    const createdSupplier = await supplierRepository.create({
-      social_name: 'Supplier 1',
-      company_name: 'Company 1',
-      phone_number: '9876543210',
-      cnpj: '12345678000100'
-    });
+  it("deve deletar o fornecedor quando o ID for válido", async () => {
+    const supplierId = "supplier-1";
 
-    await sut.execute({ id: createdSupplier.id });
+    vi.spyOn(mockSupplierRepository, "delete").mockResolvedValue({ id: supplierId });
 
-    const foundSupplier = await supplierRepository.findById(createdSupplier.id);
-    expect(foundSupplier).toBeNull();
+    await deleteSupplierService.execute({ id: supplierId });
+
+    expect(mockSupplierRepository.delete).toHaveBeenCalledWith(supplierId);
   });
 
-  it('should throw an error if the supplier does not exist', async () => {
-    await expect(sut.execute({ id: 'non-existing-id' })).rejects.toBeInstanceOf(NoRecordsFoundError);
+  it("deve lançar NoRecordsFoundError quando o fornecedor não for encontrado", async () => {
+    const supplierId = "invalid-supplier";
+
+    vi.spyOn(mockSupplierRepository, "delete").mockResolvedValue(null);
+
+    await expect(deleteSupplierService.execute({ id: supplierId })).rejects.toThrow(NoRecordsFoundError);
+    expect(mockSupplierRepository.delete).toHaveBeenCalledWith(supplierId);
   });
 });

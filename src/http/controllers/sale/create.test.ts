@@ -1,101 +1,100 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { createSale } from './create';
-import * as makeCreateSaleServiceModule from '../../../services/factories/sale/make-create-sale-service';
-import { z } from 'zod';
+import { describe, it, expect, vi } from "vitest";
+import { createSale } from "./create";
+import { FastifyRequest, FastifyReply } from "fastify";
+import { makeCreateSaleService } from "../../../services/factories/sale/make-create-sale-service";
 
-test('should create a new sale successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/sale/make-create-sale-service");
 
-  app.post('/sales', createSale);
+describe("createSale Controller", () => {
+  it("deve criar uma nova venda com sucesso", async () => {
+    const mockCreateSaleService = {
+      handle: vi.fn().mockResolvedValue(undefined),
+    };
 
-  const mockCreateSaleService = {
-    handle: vi.fn().mockResolvedValue({}),
-  };
+    vi.mocked(makeCreateSaleService).mockReturnValue(mockCreateSaleService);
 
-  vi.spyOn(makeCreateSaleServiceModule, 'makeCreateSaleService').mockReturnValue(mockCreateSaleService);
-
-  const response = await app.inject({
-    method: 'POST',
-    url: '/sales',
-    payload: {
-      nf_number: '123456',
-      userId: 'user-id',
-      items: [
-        {
-          productId: 'product-id',
-          quantity: 2,
-          value: 100.0,
-        },
-      ],
-    },
-  });
-
-  expect(response.statusCode).toBe(201);
-  expect(mockCreateSaleService.handle).toHaveBeenCalledWith({
-    nf_number: '123456',
-    userId: 'user-id',
-    items: [
-      {
-        productId: 'product-id',
-        quantity: 2,
-        value: 100.0,
+    const request = {
+      body: {
+        nf_number: "NF123",
+        userId: "user-1",
+        items: [
+          { productId: "product-1", quantity: 2, value: 50 },
+          { productId: "product-2", quantity: 1, value: 100 },
+        ],
       },
-    ],
-  });
-});
+    } as unknown as FastifyRequest;
 
-test('should return 400 if the request payload is invalid', async () => {
-  const app = fastify();
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-  app.post('/sales', createSale);
+    await createSale(request, reply);
 
-  const response = await app.inject({
-    method: 'POST',
-    url: '/sales',
-    payload: {
-      nf_number: '123456',
-      userId: 'user-id',
-      items: [ // Missing required fields in items
-        {
-          productId: 'product-id',
-          quantity: 'invalid-quantity', // Invalid type
-        },
-      ],
-    },
-  });
-
-  expect(response.statusCode).toBe(400);
-  expect(response.json().message).toBe('Invalid request payload');
-});
-
-test('should handle service errors', async () => {
-  const app = fastify();
-
-  app.post('/sales', createSale);
-
-  const mockCreateSaleService = {
-    handle: vi.fn().mockRejectedValue(new Error('Service error')),
-  };
-
-  vi.spyOn(makeCreateSaleServiceModule, 'makeCreateSaleService').mockReturnValue(mockCreateSaleService);
-
-  const response = await app.inject({
-    method: 'POST',
-    url: '/sales',
-    payload: {
-      nf_number: '123456',
-      userId: 'user-id',
+    expect(mockCreateSaleService.handle).toHaveBeenCalledWith({
+      nf_number: "NF123",
+      userId: "user-1",
       items: [
-        {
-          productId: 'product-id',
-          quantity: 2,
-          value: 100.0,
-        },
+        { productId: "product-1", quantity: 2, value: 50 },
+        { productId: "product-2", quantity: 1, value: 100 },
       ],
-    },
+    });
+    expect(reply.status).toHaveBeenCalledWith(201);
+    expect(reply.send).toHaveBeenCalled();
   });
 
-  expect(response.statusCode).toBe(500);
-  expect(response.json().message).toBe('Internal Server Error');
+  it("deve retornar erro 400 se o payload for inválido", async () => {
+    const request = {
+      body: {
+        // Payload inválido (falta userId)
+        nf_number: "NF123",
+        items: [
+          { productId: "product-1", quantity: 2, value: 50 },
+        ],
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await createSale(request, reply);
+
+    expect(reply.status).toHaveBeenCalledWith(400);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "Invalid request payload",
+    });
+  });
+
+  it("deve retornar erro 500 em caso de erro inesperado", async () => {
+    const mockCreateSaleService = {
+      handle: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
+    };
+
+    vi.mocked(makeCreateSaleService).mockReturnValue(mockCreateSaleService);
+
+    const request = {
+      body: {
+        nf_number: "NF123",
+        userId: "user-1",
+        items: [
+          { productId: "product-1", quantity: 2, value: 50 },
+          { productId: "product-2", quantity: 1, value: 100 },
+        ],
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await createSale(request, reply);
+
+    expect(reply.status).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "Internal Server Error",
+    });
+  });
 });

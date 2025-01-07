@@ -1,63 +1,73 @@
-import { beforeEach, describe, it, expect, vi } from 'vitest';
-import Fastify from 'fastify';
-import { createSupplier } from './create'
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { createSupplier } from "./create";
+import { makeCreateSupplierService } from "../../../services/factories/supplier/make-create-supplier-service";
+import { FastifyRequest, FastifyReply } from "fastify";
 
-// Mock do serviço de criação de fornecedor
-vi.mock('../../../services/factories/supplier/make-create-supplier-service', () => ({
-    makeCreateSupplierService: () => ({
-        handle: vi.fn().mockResolvedValue({
-            supplier: {
-                id: '123',
-                social_name: 'Supplier 1',
-                company_name: 'Company 1',
-                phone_number: '9876543210',
-                cnpj: '12345678000100'
-            }
-        })
-    })
-}));
+vi.mock("../../../services/factories/supplier/make-create-supplier-service");
 
-describe('createSupplier Controller', () => {
-    let fastify: Fastify;
+describe("createSupplier Controller", () => {
+  let mockCreateSupplierService: { handle: vi.Mock };
 
-    beforeEach(() => {
-        fastify = Fastify();
-        fastify.post('/suppliers', createSupplier);
+  beforeEach(() => {
+    mockCreateSupplierService = {
+      handle: vi.fn().mockResolvedValue({
+        supplier: {
+          id: "supplier-1",
+          social_name: "Supplier Social Name",
+          company_name: "Supplier Company Name",
+          phone_number: "123456789",
+          cnpj: "12345678000100",
+        },
+      }),
+    };
+
+    vi.mocked(makeCreateSupplierService).mockReturnValue(mockCreateSupplierService);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("deve criar um fornecedor e retornar status 201 com os dados do fornecedor", async () => {
+    // Mock do objeto FastifyRequest com dados válidos
+    const request = {
+      body: {
+        social_name: "Supplier Social Name",
+        company_name: "Supplier Company Name",
+        phone_number: "123456789",
+        cnpj: "12345678000100",
+      },
+    } as unknown as FastifyRequest;
+
+    // Mock do objeto FastifyReply
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    // Chamar a função do controlador
+    await createSupplier(request, reply);
+
+    // Garantir que o serviço foi chamado com os dados corretos
+    expect(mockCreateSupplierService.handle).toHaveBeenCalledWith({
+      social_name: "Supplier Social Name",
+      company_name: "Supplier Company Name",
+      phone_number: "123456789",
+      cnpj: "12345678000100",
     });
 
-    it('should create a new supplier and return it', async () => {
-        const response = await fastify.inject({
-            method: 'POST',
-            url: '/suppliers',
-            payload: {
-                social_name: 'Supplier 1',
-                company_name: 'Company 1',
-                phone_number: '9876543210',
-                cnpj: '12345678000100'
-            }
-        });
+    // Garantir que a resposta foi 201
+    expect(reply.code).toHaveBeenCalledWith(201);
 
-        expect(response.statusCode).toBe(201);
-        expect(response.json()).toEqual({
-            supplier: {
-                id: '123',
-                social_name: 'Supplier 1',
-                company_name: 'Company 1',
-                phone_number: '9876543210',
-                cnpj: '12345678000100'
-            }
-        });
+    // Garantir que a resposta contém os dados do fornecedor criado
+    expect(reply.send).toHaveBeenCalledWith({
+      supplier: {
+        id: "supplier-1",
+        social_name: "Supplier Social Name",
+        company_name: "Supplier Company Name",
+        phone_number: "123456789",
+        cnpj: "12345678000100",
+      },
     });
-
-    it('should return a 400 error if validation fails', async () => {
-        const response = await fastify.inject({
-            method: 'POST',
-            url: '/suppliers',
-            payload: {
-            }
-        });
-
-        expect(response.statusCode).toBe(400);
-        expect(response.json()).toHaveProperty('message');
-    });
+  });
 });

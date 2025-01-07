@@ -1,81 +1,100 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { createPurchase } from './create';
-import * as makeCreatePurchaseServiceModule from '../../../services/factories/purchase/make-create-purchase-service';
+import { describe, it, expect, vi } from "vitest";
+import { createPurchase } from "./create";
+import { FastifyReply, FastifyRequest } from "fastify";
+import { makeCreatePurchaseService } from "../../../services/factories/purchase/make-create-purchase-service";
 
-test('should create a new purchase successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/purchase/make-create-purchase-service");
 
-  app.post('/purchases', createPurchase);
+describe("createPurchase Controller", () => {
+  it("deve criar uma compra com sucesso", async () => {
+    const mockCreatePurchaseService = {
+      handle: vi.fn().mockResolvedValue(undefined),
+    };
 
-  const mockCreatePurchaseService = {
-    handle: vi.fn().mockResolvedValue(undefined),
-  };
+    vi.mocked(makeCreatePurchaseService).mockReturnValue(mockCreatePurchaseService);
 
-  vi.spyOn(makeCreatePurchaseServiceModule, 'makeCreatePurchaseService').mockReturnValue(mockCreatePurchaseService);
-
-  const response = await app.inject({
-    method: 'POST',
-    url: '/purchases',
-    payload: {
-      nf_number: '12345',
-      supplierId: 'supplier1',
-      userId: 'user1',
-      items: [
-        {
-          productId: 'product1',
-          quantity: 10,
-          value: 100,
-        },
-      ],
-    },
-  });
-
-  expect(response.statusCode).toBe(201);
-});
-
-test('should handle errors correctly', async () => {
-  const app = fastify();
-
-  app.post('/purchases', createPurchase);
-
-  const mockCreatePurchaseService = {
-    handle: vi.fn().mockRejectedValue(new Error('Simulated error for testing')),
-  };
-
-  vi.spyOn(makeCreatePurchaseServiceModule, 'makeCreatePurchaseService').mockReturnValue(mockCreatePurchaseService);
-
-  // Redirecionar console.error para ignorar erros
-  const originalConsoleError = console.error;
-  console.error = () => {};
-
-  try {
-    const response = await app.inject({
-      method: 'POST',
-      url: '/purchases',
-      payload: {
-        nf_number: '12345',
-        supplierId: 'supplier1',
-        userId: 'user1',
+    const request = {
+      body: {
+        nf_number: "NF123456",
+        supplierId: "supplier-1",
+        userId: "user-1",
         items: [
-          {
-            productId: 'product1',
-            quantity: 10,
-            value: 100,
-          },
+          { productId: "product-1", quantity: 10, value: 100 },
+          { productId: "product-2", quantity: 5, value: 50 },
         ],
       },
-    });
+    } as unknown as FastifyRequest;
 
-    // Verificar a resposta esperada para erro
-    expect(response.statusCode).toBe(500);
-    expect(response.json()).toEqual({
-      error: 'Internal Server Error',
-      message: 'Simulated error for testing',
-      statusCode: 500,
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await createPurchase(request, reply);
+
+    expect(mockCreatePurchaseService.handle).toHaveBeenCalledWith({
+      nf_number: "NF123456",
+      supplierId: "supplier-1",
+      userId: "user-1",
+      items: [
+        { productId: "product-1", quantity: 10, value: 100 },
+        { productId: "product-2", quantity: 5, value: 50 },
+      ],
     });
-  } finally {
-    // Restaurar console.error
-    console.error = originalConsoleError;
-  }
+    expect(reply.status).toHaveBeenCalledWith(201);
+    expect(reply.send).toHaveBeenCalled();
+  });
+
+  it("deve lançar erro de validação para corpo de requisição inválido", async () => {
+    const request = {
+      body: {
+        nf_number: "NF123456",
+        supplierId: "supplier-1",
+        userId: "user-1",
+        items: [
+          { productId: "product-1", quantity: "dez", value: 100 }, // Erro: quantidade não é um número
+        ],
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await expect(createPurchase(request, reply)).rejects.toThrowError();
+
+    expect(reply.status).not.toHaveBeenCalledWith(201);
+    expect(reply.send).not.toHaveBeenCalled();
+  });
+
+  it("deve repassar erros inesperados", async () => {
+    const mockCreatePurchaseService = {
+      handle: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
+    };
+
+    vi.mocked(makeCreatePurchaseService).mockReturnValue(mockCreatePurchaseService);
+
+    const request = {
+      body: {
+        nf_number: "NF123456",
+        supplierId: "supplier-1",
+        userId: "user-1",
+        items: [
+          { productId: "product-1", quantity: 10, value: 100 },
+        ],
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await expect(createPurchase(request, reply)).rejects.toThrowError("Erro inesperado");
+
+    expect(mockCreatePurchaseService.handle).toHaveBeenCalled();
+    expect(reply.status).not.toHaveBeenCalledWith(201);
+    expect(reply.send).not.toHaveBeenCalled();
+  });
 });

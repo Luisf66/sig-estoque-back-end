@@ -1,55 +1,99 @@
-import { test, expect, vi } from 'vitest'; // Adicione a importação de 'vi'
-import fastify from 'fastify';
-import { createManager } from './create';
-import * as makeCreateManagerServiceModule from '../../../services/factories/manager/make-create-manager-service';
-import { UserAlreadyExistsError } from '../../../services/errors/user-already-exists-error';
+import { describe, it, expect, vi } from "vitest";
+import { createManager } from "./create";
+import { FastifyRequest, FastifyReply } from "fastify";
+import { makeCreateManagerService } from "../../../services/factories/manager/make-create-manager-service";
+import { UserAlreadyExistsError } from "../../../services/errors/user-already-exists-error";
 
-test('should create a new manager successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/manager/make-create-manager-service");
 
-  app.post('/managers', createManager);
+describe("createManager Controller", () => {
+  it("deve criar um gerente com sucesso e retornar status 201", async () => {
+    // Mock do serviço
+    const mockCreateManagerService = {
+      execute: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.mocked(makeCreateManagerService).mockReturnValue(mockCreateManagerService);
 
-  const mockCreateManagerService = {
-    execute: vi.fn().mockResolvedValue({}),
-  };
+    // Mock do request e reply
+    const request = {
+      body: {
+        name: "João",
+        email: "joao@email.com",
+        password: "password123",
+      },
+    } as unknown as FastifyRequest;
 
-    vi.spyOn(makeCreateManagerServiceModule, 'makeCreateManagerService').mockReturnValue(mockCreateManagerService);
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
+    await createManager(request, reply);
 
-  const response = await app.inject({
-    method: 'POST',
-    url: '/managers',
-    payload: {
-      name: 'Test Manager',
-      email: 'manager@test.com',
-      password: 'password123',
-    },
+    expect(mockCreateManagerService.execute).toHaveBeenCalledWith({
+      name: "João",
+      email: "joao@email.com",
+      password: "password123",
+    });
+    expect(reply.status).toHaveBeenCalledWith(201);
+    expect(reply.send).toHaveBeenCalled();
   });
 
-  expect(response.statusCode).toBe(201);
-});
-
-test('should return 409 if the user already exists', async () => {
-    const app = fastify();
-  
-    app.post('/managers', createManager);
-  
+  it("deve retornar erro 409 se o email já estiver em uso", async () => {
+    // Mock do serviço para lançar UserAlreadyExistsError
     const mockCreateManagerService = {
       execute: vi.fn().mockRejectedValue(new UserAlreadyExistsError()),
     };
-  
-    vi.spyOn(makeCreateManagerServiceModule, 'makeCreateManagerService').mockReturnValue(mockCreateManagerService);
-  
-    const response = await app.inject({
-      method: 'POST',
-      url: '/managers',
-      payload: {
-        name: 'Test Manager',
-        email: 'manager@test.com',
-        password: 'password123',
+    vi.mocked(makeCreateManagerService).mockReturnValue(mockCreateManagerService);
+
+    const request = {
+      body: {
+        name: "João",
+        email: "joao@email.com",
+        password: "password123",
       },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await createManager(request, reply);
+
+    expect(reply.status).toHaveBeenCalledWith(409);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "E-mail already exists.",
     });
-  
-    expect(response.statusCode).toBe(409);
-    expect(response.json()).toEqual({ message: 'E-mail already exists.' });
   });
+
+  it("deve lançar erro de validação ao receber dados inválidos", async () => {
+    // Mock do serviço
+    const mockCreateManagerService = {
+      execute: vi.fn(),
+    };
+    vi.mocked(makeCreateManagerService).mockReturnValue(mockCreateManagerService);
+
+    const request = {
+      body: {
+        name: "",
+        email: "email-invalido",
+        password: "123",
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    try {
+      await createManager(request, reply);
+      throw new Error("O controlador deveria ter lançado um erro de validação.");
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain("Invalid");
+      expect(mockCreateManagerService.execute).not.toHaveBeenCalled();
+    }
+  });
+});

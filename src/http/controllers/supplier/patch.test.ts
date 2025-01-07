@@ -1,101 +1,120 @@
-import { beforeEach, describe, it, expect, vi } from 'vitest';
-import Fastify from 'fastify';
-import { patchSupplier } from './patch';
-import * as makePatchSupplierServiceModule from '../../../services/factories/supplier/make-patch-supplier-service';
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { patchSupplier } from "./patch";
+import { makePatchSupplierService } from "../../../services/factories/supplier/make-patch-supplier-service";
+import { FastifyRequest, FastifyReply } from "fastify";
 
-// Mock do serviço de patch do fornecedor
-vi.mock('../../../services/factories/supplier/make-patch-supplier-service', () => ({
-    makePatchSupplierService: () => ({
-        handle: vi.fn().mockResolvedValue({
-            supplier: {
-                id: '123',
-                social_name: 'Updated Supplier',
-                company_name: 'Updated Company',
-                phone_number: '1111111111',
-                cnpj: '99999999999999'
-            }
-        })
-    })
-}));
+vi.mock("../../../services/factories/supplier/make-patch-supplier-service");
 
-describe('patchSupplier Controller', () => {
-    let fastify: Fastify;
+describe("patchSupplier Controller", () => {
+  let mockPatchSupplierService: { handle: vi.Mock };
 
-    beforeEach(() => {
-        fastify = Fastify();
-        fastify.patch('/suppliers/:id', patchSupplier);
+  beforeEach(() => {
+    mockPatchSupplierService = {
+      handle: vi.fn().mockResolvedValue({
+        supplier: {
+          id: "supplier-1",
+          social_name: "Updated Social Name",
+          company_name: "Updated Company Name",
+          phone_number: "987654321",
+          cnpj: "11111111000111",
+        },
+      }),
+    };
+
+    vi.mocked(makePatchSupplierService).mockReturnValue(mockPatchSupplierService);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("deve atualizar um fornecedor com sucesso e retornar status 200", async () => {
+    const request = {
+      params: { id: "supplier-1" },
+      body: {
+        social_name: "Updated Social Name",
+        company_name: "Updated Company Name",
+        phone_number: "987654321",
+        cnpj: "11111111000111",
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await patchSupplier(request, reply);
+
+    expect(mockPatchSupplierService.handle).toHaveBeenCalledWith({
+      id: "supplier-1",
+      data: {
+        social_name: "Updated Social Name",
+        company_name: "Updated Company Name",
+        phone_number: "987654321",
+        cnpj: "11111111000111",
+      },
     });
-
-    it('should update supplier and return the updated supplier', async () => {
-        const response = await fastify.inject({
-            method: 'PATCH',
-            url: '/suppliers/123',
-            payload: {
-                social_name: 'Updated Supplier',
-                company_name: 'Updated Company',
-                phone_number: '1111111111',
-                cnpj: '99999999999999'
-            }
-        });
-
-        expect(response.statusCode).toBe(200);
-        expect(response.json()).toEqual({
-            supplier: {
-                id: '123',
-                social_name: 'Updated Supplier',
-                company_name: 'Updated Company',
-                phone_number: '1111111111',
-                cnpj: '99999999999999'
-            }
-        });
+    expect(reply.code).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
+      supplier: {
+        id: "supplier-1",
+        social_name: "Updated Social Name",
+        company_name: "Updated Company Name",
+        phone_number: "987654321",
+        cnpj: "11111111000111",
+      },
     });
+  });
 
-    it('should handle validation errors and return a 400 status code', async () => {
-        const response = await fastify.inject({
-            method: 'PATCH',
-            url: '/suppliers/123',
-            payload: {
-                // Enviando dados inválidos para provocar erro de validação
-                social_name: 12345 // Deve ser uma string
-            }
-        });
+  it("deve retornar erro 400 para dados de entrada inválidos", async () => {
+    const request = {
+      params: { id: "supplier-1" },
+      body: {
+        social_name: 123, // Dado inválido
+      },
+    } as unknown as FastifyRequest;
 
-        expect(response.statusCode).toBe(400);
-        expect(response.json()).toEqual({
-            statusCode: 400,
-            error: 'Bad Request',
-            message: 'Invalid input'
-        });
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await patchSupplier(request, reply);
+
+    expect(reply.code).toHaveBeenCalledWith(400);
+    expect(reply.send).toHaveBeenCalledWith({
+      statusCode: 400,
+      error: "Bad Request",
+      message: "Invalid input",
     });
+  });
 
-    it('should handle errors from the service and return a 500 status code', async () => {
-        // Configurar o mock para lançar um erro
-        vi.spyOn(makePatchSupplierServiceModule, 'makePatchSupplierService').mockReturnValue({
-            handle: vi.fn().mockRejectedValue(new Error('Simulated error for testing'))
-        });
+  it("deve retornar erro 500 em caso de falha no serviço", async () => {
+    mockPatchSupplierService.handle.mockRejectedValue(new Error("Erro ao atualizar fornecedor"));
 
-        // Redirecionar console.error para ignorar erros
-        const originalConsoleError = console.error;
-        console.error = () => {};
+    const request = {
+      params: { id: "supplier-1" },
+      body: {
+        social_name: "Updated Social Name",
+        company_name: "Updated Company Name",
+        phone_number: "987654321",
+        cnpj: "11111111000111",
+      },
+    } as unknown as FastifyRequest;
 
-        try {
-            const response = await fastify.inject({
-                method: 'PATCH',
-                url: '/suppliers/123',
-                payload: {
-                    social_name: 'Updated Supplier'
-                }
-            });
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-            expect(response.statusCode).toBe(500);
-            expect(response.json()).toEqual({
-                statusCode: 500,
-                error: 'Internal Server Error',
-                message: 'An error occurred while updating the supplier'
-            });
-        } finally {
-            // Restaurar console.error
-            console.error = originalConsoleError;
-        }
+    await patchSupplier(request, reply);
+
+    expect(reply.code).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({
+      statusCode: 500,
+      error: "Internal Server Error",
+      message: "An error occurred while updating the supplier",
     });
+  });
 });

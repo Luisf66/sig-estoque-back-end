@@ -1,66 +1,95 @@
-import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
-import { PatchProductService } from './patch-product';
-import { ProductRepository } from '../../repositories/product-repository';
-import { Product } from '@prisma/client';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { PatchProductService } from "./patch-product";
+import { ProductRepository } from "../../repositories/product-repository";
+import { ResourceNotFoundError } from "../errors/resource-not-found-error";
+import { InactiveError } from "../errors/inactive-error";
 
-describe('PatchProductService', () => {
-    // Mock productRepository
-    let productRepository: ProductRepository;
-    let patchProductService: PatchProductService;
+describe("PatchProductService", () => {
+  let mockProductRepository: ProductRepository;
+  let patchProductService: PatchProductService;
 
-    beforeEach(() => {
-        productRepository = {
-            findById: vi.fn() as Mock,
-            patch: vi.fn() as Mock,
-        } as unknown as ProductRepository;
+  beforeEach(() => {
+    mockProductRepository = {
+      findById: vi.fn(),
+      patch: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      inactivate: vi.fn(),
+    } as unknown as ProductRepository;
 
-        patchProductService = new PatchProductService(productRepository);
+    patchProductService = new PatchProductService(mockProductRepository);
+  });
+
+  it("deve atualizar um produto ativo com sucesso", async () => {
+    const mockProduct = {
+      id: "product-1",
+      name: "Produto A",
+      description: "Descrição do produto A",
+      price: 100,
+      quantity_in_stock: 50,
+      batch: "Lote123",
+      is_active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const updatedData = { name: "Produto A Atualizado", price: 120 };
+
+    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
+    vi.spyOn(mockProductRepository, "patch").mockResolvedValue({
+      ...mockProduct,
+      ...updatedData,
     });
 
-    it('should update product data if product exists and is active', async () => {
-        const mockProduct = { id: '1', name: 'Product 1', is_active: true } as Product;
-        const updateData = { name: 'Updated Product' };
-
-        (productRepository.findById as Mock).mockResolvedValue(mockProduct);
-        (productRepository.patch as Mock).mockResolvedValue({ ...mockProduct, ...updateData });
-
-        const result = await patchProductService.handle({
-            id: '1',
-            data: updateData,
-        });
-
-        expect(result.product).toEqual({ ...mockProduct, ...updateData });
-        expect(productRepository.findById).toHaveBeenCalledWith('1');
-        expect(productRepository.patch).toHaveBeenCalledWith('1', updateData);
+    const result = await patchProductService.handle({
+      id: "product-1",
+      data: updatedData,
     });
 
-    it('should throw an error if product does not exist', async () => {
-        (productRepository.findById as Mock).mockResolvedValue(null);
+    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
+    expect(mockProductRepository.patch).toHaveBeenCalledWith("product-1", updatedData);
+    expect(result.product).toEqual({ ...mockProduct, ...updatedData });
+  });
 
-        await expect(
-            patchProductService.handle({
-                id: '1',
-                data: { name: 'Updated Product' },
-            })
-        ).rejects.toThrow('Resource not found');
+  it("deve lançar um erro se o produto não for encontrado", async () => {
+    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(null);
 
-        expect(productRepository.findById).toHaveBeenCalledWith('1');
-        expect(productRepository.patch).not.toHaveBeenCalled();
-    });
+    await expect(
+      patchProductService.handle({
+        id: "product-1",
+        data: { name: "Produto Inexistente" },
+      })
+    ).rejects.toThrowError(ResourceNotFoundError);
 
-    it('should throw an error if product is inactive', async () => {
-        const mockProduct = { id: '1', name: 'Product 1', is_active: false } as Product;
+    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
+    expect(mockProductRepository.patch).not.toHaveBeenCalled();
+  });
 
-        (productRepository.findById as Mock).mockResolvedValue(mockProduct);
+  it("deve lançar um erro se o produto estiver inativo", async () => {
+    const mockProduct = {
+      id: "product-1",
+      name: "Produto Inativo",
+      description: "Descrição do produto inativo",
+      price: 100,
+      quantity_in_stock: 50,
+      batch: "Lote123",
+      is_active: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-        await expect(
-            patchProductService.handle({
-                id: '1',
-                data: { name: 'Updated Product' },
-            })
-        ).rejects.toThrow('Product does not exist or is inactive');
+    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
 
-        expect(productRepository.findById).toHaveBeenCalledWith('1');
-        expect(productRepository.patch).not.toHaveBeenCalled();
-    });
+    await expect(
+      patchProductService.handle({
+        id: "product-1",
+        data: { name: "Produto Atualizado" },
+      })
+    ).rejects.toThrowError(InactiveError);
+
+    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
+    expect(mockProductRepository.patch).not.toHaveBeenCalled();
+  });
 });

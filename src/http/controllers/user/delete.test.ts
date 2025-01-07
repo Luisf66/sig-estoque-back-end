@@ -1,66 +1,86 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { deleteUser } from "./delete";
-import { FastifyReply, FastifyRequest } from "fastify";
-import { ResourceNotFoundError } from "../../../services/errors/resource-not-found-error";
 import { makeDeleteUserService } from "../../../services/factories/user/make-delete-user-service";
+import { ResourceNotFoundError } from "../../../services/errors/resource-not-found-error";
+import { FastifyRequest, FastifyReply } from "fastify";
 
 vi.mock("../../../services/factories/user/make-delete-user-service");
 
 describe("deleteUser Controller", () => {
-  const mockRequest = {
-    params: {
-      id: "user-id"
-    }
-  } as FastifyRequest;
+  let mockDeleteUserService: { execute: vi.Mock };
 
-  const mockReply = {
-    status: vi.fn().mockReturnThis(),
-    send: vi.fn().mockReturnThis()
-  } as unknown as FastifyReply;
-
-  it("should delete the user and return a success message", async () => {
-    const mockService = {
-      execute: vi.fn().mockResolvedValue(undefined)
+  beforeEach(() => {
+    mockDeleteUserService = {
+      execute: vi.fn(),
     };
 
-    (makeDeleteUserService as any).mockReturnValue(mockService);
-
-    await deleteUser(mockRequest, mockReply);
-
-    expect(mockService.execute).toHaveBeenCalledWith({ id: "user-id" });
-    expect(mockReply.status).toHaveBeenCalledWith(200);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      message: "User successfully deleted."
-    });
+    vi.mocked(makeDeleteUserService).mockReturnValue(mockDeleteUserService);
   });
 
-  it("should return 404 if the user is not found", async () => {
-    const mockService = {
-      execute: vi.fn().mockRejectedValue(new ResourceNotFoundError("User not found"))
-    };
-
-    (makeDeleteUserService as any).mockReturnValue(mockService);
-
-    await deleteUser(mockRequest, mockReply);
-
-    expect(mockReply.status).toHaveBeenCalledWith(404);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      message: "User not found"
-    });
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("should return 500 if an unknown error occurs", async () => {
-    const mockService = {
-      execute: vi.fn().mockRejectedValue(new Error("Unknown error"))
-    };
+  it("deve deletar o usuário e retornar status 200 com mensagem de sucesso", async () => {
+    mockDeleteUserService.execute.mockResolvedValueOnce();
 
-    (makeDeleteUserService as any).mockReturnValue(mockService);
+    const request = {
+      params: {
+        id: "user-1",
+      },
+    } as unknown as FastifyRequest;
 
-    await deleteUser(mockRequest, mockReply);
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-    expect(mockReply.status).toHaveBeenCalledWith(500);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      message: "Internal Server Error"
-    });
+    await deleteUser(request, reply);
+
+    expect(mockDeleteUserService.execute).toHaveBeenCalledWith({ id: "user-1" });
+    expect(reply.status).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({ message: "User successfully deleted." });
+  });
+
+  it("deve retornar erro 404 quando o usuário não for encontrado", async () => {
+    mockDeleteUserService.execute.mockRejectedValueOnce(new ResourceNotFoundError());
+
+    const request = {
+      params: {
+        id: "non-existent-user",
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await deleteUser(request, reply);
+
+    expect(mockDeleteUserService.execute).toHaveBeenCalledWith({ id: "non-existent-user" });
+    expect(reply.status).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({ message: "User not found" });
+  });
+
+  it("deve retornar erro 500 para erros inesperados", async () => {
+    mockDeleteUserService.execute.mockRejectedValueOnce(new Error("Unexpected error"));
+
+    const request = {
+      params: {
+        id: "user-1",
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await deleteUser(request, reply);
+
+    expect(mockDeleteUserService.execute).toHaveBeenCalledWith({ id: "user-1" });
+    expect(reply.status).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({ message: "Internal Server Error" });
   });
 });

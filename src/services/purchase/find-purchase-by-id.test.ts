@@ -1,37 +1,48 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { InMemoryPurchaseRepository } from '../../repositories/in-memory/in-memory-purchase-repository';
-import { FindPurchaseByIdService } from './find-purchase-by-id';
-import { ResourceNotFoundError } from '../errors/resource-not-found-error';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { FindPurchaseByIdService } from "./find-purchase-by-id";
+import { PurchaseRepository } from "../../repositories/purchase-repository";
+import { ResourceNotFoundError } from "../errors/resource-not-found-error";
 
-let purchaseRepository: InMemoryPurchaseRepository;
-let findPurchaseByIdService: FindPurchaseByIdService;
+describe("FindPurchaseByIdService", () => {
+  let mockPurchaseRepository: PurchaseRepository;
+  let findPurchaseByIdService: FindPurchaseByIdService;
 
-describe('FindPurchaseByIdService', () => {
   beforeEach(() => {
-    purchaseRepository = new InMemoryPurchaseRepository();
-    findPurchaseByIdService = new FindPurchaseByIdService(purchaseRepository);
+    mockPurchaseRepository = {
+      findById: vi.fn(),
+    } as unknown as PurchaseRepository;
+
+    findPurchaseByIdService = new FindPurchaseByIdService(mockPurchaseRepository);
   });
 
-  it('should find a purchase by id', async () => {
-    const purchase = await purchaseRepository.create({
-      nf_number: '12345',
-      subTotal: 100,
-      user: { connect: { id: 'some-user-id' } }, // Use um ID de usuário válido
-      supplier: { connect: { id: 'some-supplier-id' } }, // Use um ID de fornecedor válido
-    });
+  it("deve retornar a compra pelo ID", async () => {
+    const mockPurchase = {
+      id: "purchase-1",
+      nf_number: "12345",
+      supplierId: "supplier-1",
+      userId: "user-1",
+      subTotal: 500,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-    const response = await findPurchaseByIdService.execute({
-      purchaseId: purchase.id,
-    });
+    vi.spyOn(mockPurchaseRepository, "findById").mockResolvedValue(mockPurchase);
 
-    expect(response.purchase).toBeDefined();
-    expect(response.purchase.id).toBe(purchase.id);
-    expect(response.purchase.nf_number).toBe('12345');
+    const result = await findPurchaseByIdService.execute({ purchaseId: "purchase-1" });
+
+    expect(mockPurchaseRepository.findById).toHaveBeenCalledWith("purchase-1");
+    expect(result).toEqual({
+      purchase: mockPurchase,
+    });
   });
 
-  it('should throw ResourceNotFoundError if purchase does not exist', async () => {
+  it("deve lançar um erro se a compra não for encontrada", async () => {
+    vi.spyOn(mockPurchaseRepository, "findById").mockResolvedValue(null);
+
     await expect(
-      findPurchaseByIdService.execute({ purchaseId: 'non-existent-id' })
+      findPurchaseByIdService.execute({ purchaseId: "purchase-1" })
     ).rejects.toBeInstanceOf(ResourceNotFoundError);
+
+    expect(mockPurchaseRepository.findById).toHaveBeenCalledWith("purchase-1");
   });
 });

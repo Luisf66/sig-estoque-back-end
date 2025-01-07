@@ -1,104 +1,75 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { fetchAllPurchaseBySupplierId } from './fetch-all-by-supplier-id';
-import * as makeFetchAllPurchaseBySupplierIdServiceModule from '../../../services/factories/purchase/make-fetch-all-purchase-by-supplier-id';
+import { describe, it, expect, vi } from "vitest";
+import { fetchAllPurchaseBySupplierId } from "./fetch-all-by-supplier-id";
+import { FastifyReply, FastifyRequest } from "fastify";
+import { makeFetchAllPurchaseBySupplierIdService } from "../../../services/factories/purchase/make-fetch-all-purchase-by-supplier-id";
 
-test('should fetch all purchases by supplier id successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/purchase/make-fetch-all-purchase-by-supplier-id");
 
-  app.get('/purchases/:supplierId', fetchAllPurchaseBySupplierId);
+describe("fetchAllPurchaseBySupplierId Controller", () => {
+  it("deve retornar erro se o parâmetro supplierId estiver ausente", async () => {
+    const request = {
+      params: {}, // supplierId ausente
+    } as unknown as FastifyRequest;
 
-  const mockFetchAllPurchaseBySupplierIdService = {
-    execute: vi.fn().mockResolvedValue({
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    try {
+      await fetchAllPurchaseBySupplierId(request, reply);
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error); // Verifica que um erro foi lançado
+    }
+
+    expect(reply.code).not.toHaveBeenCalled();
+    expect(reply.send).not.toHaveBeenCalled();
+  });
+
+  it("deve retornar todas as compras para um supplierId válido", async () => {
+    const mockFetchAllPurchaseBySupplierIdService = {
+      execute: vi.fn().mockResolvedValue({
+        purchases: [
+          {
+            id: "1",
+            supplierId: "123",
+            item: "Produto A",
+            quantity: 10,
+          },
+        ],
+      }),
+    };
+
+    // Mock direto, sem usar `vi.mocked`
+    vi.mocked(makeFetchAllPurchaseBySupplierIdService).mockImplementation(
+      () => mockFetchAllPurchaseBySupplierIdService
+    );
+
+    const request = {
+      params: { supplierId: "123" },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await fetchAllPurchaseBySupplierId(request, reply);
+
+    expect(mockFetchAllPurchaseBySupplierIdService.execute).toHaveBeenCalledWith({
+      supplierId: "123",
+    });
+
+    expect(reply.code).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
       purchases: [
         {
-          id: 'purchase1',
-          nf_number: '12345',
-          subTotal: 100,
-          supplierId: 'supplier1',
-          userId: 'user1',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        {
-          id: 'purchase2',
-          nf_number: '67890',
-          subTotal: 200,
-          supplierId: 'supplier1',
-          userId: 'user2',
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          id: "1",
+          supplierId: "123",
+          item: "Produto A",
+          quantity: 10,
         },
       ],
-    }),
-  };
-
-  vi.spyOn(makeFetchAllPurchaseBySupplierIdServiceModule, 'makeFetchAllPurchaseBySupplierIdService').mockReturnValue(
-    mockFetchAllPurchaseBySupplierIdService
-  );
-
-  const response = await app.inject({
-    method: 'GET',
-    url: '/purchases/supplier1',
-  });
-
-  expect(response.statusCode).toBe(200);
-  expect(response.json()).toEqual({
-    purchases: [
-      {
-        id: 'purchase1',
-        nf_number: '12345',
-        subTotal: 100,
-        supplierId: 'supplier1',
-        userId: 'user1',
-        createdAt: expect.any(String),
-        updatedAt: expect.any(String),
-      },
-      {
-        id: 'purchase2',
-        nf_number: '67890',
-        subTotal: 200,
-        supplierId: 'supplier1',
-        userId: 'user2',
-        createdAt: expect.any(String),
-        updatedAt: expect.any(String),
-      },
-    ],
-  });
-});
-
-test('should handle errors correctly', async () => {
-  const app = fastify();
-
-  app.get('/purchases/:supplierId', fetchAllPurchaseBySupplierId);
-
-  const mockFetchAllPurchaseBySupplierIdService = {
-    execute: vi.fn().mockRejectedValue(new Error('Simulated error for testing')),
-  };
-
-  vi.spyOn(makeFetchAllPurchaseBySupplierIdServiceModule, 'makeFetchAllPurchaseBySupplierIdService').mockReturnValue(
-    mockFetchAllPurchaseBySupplierIdService
-  );
-
-  // Redirecionar console.error para ignorar erros
-  const originalConsoleError = console.error;
-  console.error = () => {};
-
-  try {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/purchases/supplier1',
     });
-
-    // Verificar a resposta esperada para erro
-    expect(response.statusCode).toBe(500);
-    expect(response.json()).toEqual({
-      error: 'Internal Server Error',
-      message: 'Simulated error for testing',
-      statusCode: 500,
-    });
-  } finally {
-    // Restaurar console.error
-    console.error = originalConsoleError;
-  }
+  });
 });

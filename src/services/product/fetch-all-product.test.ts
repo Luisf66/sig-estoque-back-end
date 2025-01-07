@@ -1,38 +1,52 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { InMemoryProductsRepository } from "../../repositories/in-memory/in-memory-products-repository";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { FetchAllProductService } from "./fetch-all-product";
+import { ProductRepository } from "../../repositories/product-repository";
+import { Product } from "@prisma/client";
 
-let productRepository: InMemoryProductsRepository;
-let sut: FetchAllProductService;
+describe("FetchAllProductService", () => {
+  let mockProductRepository: ProductRepository;
+  let fetchAllProductService: FetchAllProductService;
 
-describe('Fetch All Product Service', () => {
-    beforeEach(() => {
-        productRepository = new InMemoryProductsRepository();
-        sut = new FetchAllProductService(productRepository);
-    });
+  beforeEach(() => {
+    mockProductRepository = {
+      findMany: vi.fn(),
+    } as unknown as ProductRepository;
 
-    it('should be able to fetch all products', async () => {
-        await productRepository.create({
-            name: 'Product 1',
-            description: 'Product 1 description',
-            price: 100,
-            quantity_in_stock: 10,
-            batch: 'ABC123'
-        });
+    fetchAllProductService = new FetchAllProductService(mockProductRepository);
+  });
 
-        await productRepository.create({
-            name: 'Product 2',
-            description: 'Product 2 description',
-            price: 200,
-            quantity_in_stock: 20,
-            batch: 'DEF456'
-        });
-
-        const result = await sut.execute();
-        const products = result.product;
-
-        expect(products).toHaveLength(2);
-        expect(products[0]).toHaveProperty('name', 'Product 1');
-        expect(products[1]).toHaveProperty('name', 'Product 2');
-    });
+  it("deve buscar todos os produtos com sucesso", async () => {
+    const mockProducts: Product[] = [
+      {
+        id: "product-1",
+        name: "Produto A",
+        description: "Descrição do produto A",
+        price: 100,
+        quantity_in_stock: 50,
+        batch: "Lote123",
+        is_active: true, // Adicionado para atender ao tipo `Product`
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: "product-2",
+        name: "Produto B",
+        description: "Descrição do produto B",
+        price: 200,
+        quantity_in_stock: 30,
+        batch: "Lote456",
+        is_active: true, // Adicionado para atender ao tipo `Product`
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+  
+    // Mock do método findMany para simular o retorno de produtos
+    vi.spyOn(mockProductRepository, "findMany").mockResolvedValue(mockProducts);
+  
+    const response = await fetchAllProductService.execute();
+  
+    expect(mockProductRepository.findMany).toHaveBeenCalled();
+    expect(response.product).toEqual(mockProducts);
+  });
 });

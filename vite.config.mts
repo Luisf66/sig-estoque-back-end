@@ -22,6 +22,7 @@ export default defineConfig({
             'vitest.config.ts',
             'vitest.workspace.ts',
             'src/utils',
+            '.stryker-tmp/**',
           ],
         },
     reporters: ['default', 'vitest-sonar-reporter'],

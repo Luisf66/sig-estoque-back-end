@@ -1,77 +1,117 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { authenticateUser } from "./authenticate";
-import { FastifyReply, FastifyRequest } from "fastify";
-import { InvalidCredentialError } from "../../../services/errors/invalid-credential-error";
 import { makeUserAuthenticateService } from "../../../services/factories/user/make-user-authenticate-service";
+import { InvalidCredentialError } from "../../../services/errors/invalid-credential-error";
+import { FastifyRequest, FastifyReply } from "fastify";
 
 vi.mock("../../../services/factories/user/make-user-authenticate-service");
 
 describe("authenticateUser Controller", () => {
-  const mockRequest = {
-    body: {
-      email: "test@example.com",
-      password: "password123"
-    }
-  } as FastifyRequest;
+  let mockAuthenticateUserService: { execute: vi.Mock };
 
-  const mockReply = {
-    status: vi.fn().mockReturnThis(),
-    send: vi.fn().mockReturnThis(),
-    jwtSign: vi.fn().mockResolvedValue("mockToken")
-  } as unknown as FastifyReply;
-
-  it("should authenticate the user and return a token", async () => {
-    const mockService = {
-      execute: vi.fn().mockResolvedValue({
-        user: {
-          id: "user-id",
-          role: "user"
-        }
-      })
+  beforeEach(() => {
+    mockAuthenticateUserService = {
+      execute: vi.fn(),
     };
 
-    (makeUserAuthenticateService as any).mockReturnValue(mockService);
+    vi.mocked(makeUserAuthenticateService).mockReturnValue(mockAuthenticateUserService);
+  });
 
-    await authenticateUser(mockRequest, mockReply);
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
-    expect(mockService.execute).toHaveBeenCalledWith({
-      email: "test@example.com",
-      password: "password123"
+  it("deve autenticar o usuário e retornar o token com status 200", async () => {
+    mockAuthenticateUserService.execute.mockResolvedValue({
+      user: {
+        id: "user-1",
+        role: "admin",
+      },
     });
-    expect(mockReply.jwtSign).toHaveBeenCalledWith(
-      { role: "user" },
-      { sign: { sub: "user-id" } }
+
+    const request = {
+      body: {
+        email: "test@example.com",
+        password: "password123",
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      jwtSign: vi.fn().mockResolvedValue("mocked-jwt-token"), // Mock do método jwtSign
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await authenticateUser(request, reply);
+
+    expect(mockAuthenticateUserService.execute).toHaveBeenCalledWith({
+      email: "test@example.com",
+      password: "password123",
+    });
+
+    expect(reply.jwtSign).toHaveBeenCalledWith(
+      { role: "admin" },
+      { sign: { sub: "user-1" } }
     );
-    expect(mockReply.status).toHaveBeenCalledWith(200);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      id: "user-id",
-      role: "user",
-      token: "mockToken"
+
+    expect(reply.status).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
+      id: "user-1",
+      role: "admin",
+      token: "mocked-jwt-token",
     });
   });
 
-  it("should return 400 if credentials are invalid", async () => {
-    const mockService = {
-      execute: vi.fn().mockRejectedValue(new InvalidCredentialError())
-    };
+  it("deve retornar erro 400 para credenciais inválidas", async () => {
+    mockAuthenticateUserService.execute.mockRejectedValue(
+      new InvalidCredentialError()
+    );
 
-    (makeUserAuthenticateService as any).mockReturnValue(mockService);
+    const request = {
+      body: {
+        email: "invalid@example.com",
+        password: "wrongpassword",
+      },
+    } as unknown as FastifyRequest;
 
-    await authenticateUser(mockRequest, mockReply);
+    const reply = {
+      jwtSign: vi.fn(), // Mock necessário, mas não usado nesse caso
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-    expect(mockReply.status).toHaveBeenCalledWith(400);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      message: "Invalid credentials."
+    await authenticateUser(request, reply);
+
+    expect(mockAuthenticateUserService.execute).toHaveBeenCalledWith({
+      email: "invalid@example.com",
+      password: "wrongpassword",
+    });
+
+    expect(reply.status).toHaveBeenCalledWith(400);
+    expect(reply.send).toHaveBeenCalledWith({ message: "Invalid credentials." });
+  });
+
+  it("deve lançar um erro inesperado", async () => {
+    mockAuthenticateUserService.execute.mockRejectedValue(new Error("Unexpected error"));
+
+    const request = {
+        body: {
+          email: "test@example.com",
+          password: "password123",
+        },
+      } as unknown as FastifyRequest;
+  
+      const reply = {
+        jwtSign: vi.fn(), // Mock necessário, mas não usado nesse caso
+        status: vi.fn().mockReturnThis(),
+        send: vi.fn(),
+      } as unknown as FastifyReply;
+  
+      await expect(authenticateUser(request, reply)).rejects.toThrowError("Unexpected error");
+  
+      expect(mockAuthenticateUserService.execute).toHaveBeenCalledWith({
+        email: "test@example.com",
+        password: "password123",
+      });
     });
   });
-
-  it("should throw an error if an unknown error occurs", async () => {
-    const mockService = {
-      execute: vi.fn().mockRejectedValue(new Error("Unknown error"))
-    };
-
-    (makeUserAuthenticateService as any).mockReturnValue(mockService);
-
-    await expect(authenticateUser(mockRequest, mockReply)).rejects.toThrow("Unknown error");
-  });
-});

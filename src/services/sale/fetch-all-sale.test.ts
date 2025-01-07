@@ -1,51 +1,39 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FetchAllSaleService } from "./fetch-all-sale";
-import { InMemorySaleRepository } from "../../repositories/in-memory/in-memory-sale-repository";
-import { Sale } from "@prisma/client";
+import { SaleRepository } from "../../repositories/sale-repository";
 
 describe("FetchAllSaleService", () => {
-  let saleRepository: InMemorySaleRepository;
+  let mockSaleRepository: SaleRepository;
   let fetchAllSaleService: FetchAllSaleService;
 
   beforeEach(() => {
-    saleRepository = new InMemorySaleRepository();
-    fetchAllSaleService = new FetchAllSaleService(saleRepository);
+    mockSaleRepository = {
+      findMany: vi.fn(),
+    } as unknown as SaleRepository;
+
+    fetchAllSaleService = new FetchAllSaleService(mockSaleRepository);
   });
 
-  it("deve buscar todas as vendas", async () => {
-    // Criando vendas no repositório in-memory
-    const sale1 = await saleRepository.create({
-      nf_number: "12345",
-      subTotal: 100.0,
-      user: {
-        connect: {
-          id: "user-1",
-        },
-      },
-    });
+  it("deve retornar todas as vendas", async () => {
+    const mockSales = [
+      { id: "sale-1", nf_number: "123", userId: "user-1", subTotal: 200 },
+      { id: "sale-2", nf_number: "124", userId: "user-2", subTotal: 300 },
+    ];
 
-    const sale2 = await saleRepository.create({
-      nf_number: "67890",
-      subTotal: 150.0,
-      user: {
-        connect: {
-          id: "user-2",
-        },
-      },
-    });
+    vi.spyOn(mockSaleRepository, "findMany").mockResolvedValue(mockSales);
 
-    // Executando o serviço para buscar todas as vendas
-    const { sale } = await fetchAllSaleService.execute();
+    const result = await fetchAllSaleService.execute();
 
-    // Verificando se as vendas retornadas são as esperadas
-    expect(sale).toEqual([sale1, sale2]);
+    expect(mockSaleRepository.findMany).toHaveBeenCalled();
+    expect(result).toEqual({ sale: mockSales });
   });
 
   it("deve retornar uma lista vazia se não houver vendas", async () => {
-    // Executando o serviço sem criar vendas
-    const { sale } = await fetchAllSaleService.execute();
+    vi.spyOn(mockSaleRepository, "findMany").mockResolvedValue([]);
 
-    // Verificando se o resultado é uma lista vazia
-    expect(sale).toEqual([]);
+    const result = await fetchAllSaleService.execute();
+
+    expect(mockSaleRepository.findMany).toHaveBeenCalled();
+    expect(result).toEqual({ sale: [] });
   });
 });

@@ -1,60 +1,101 @@
-import { beforeEach, describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CreateManagerService } from "./create-manager";
-import { InMemoryManagersRepository } from "../../repositories/in-memory/in-memory-manager-repository";
-import { InMemoryUsersRepository } from "../../repositories/in-memory/in-memory-users-repository";
-import { compare } from "bcryptjs";
+import { ManagerRepository } from "../../repositories/manager-repository";
+import { UserRepository } from "../../repositories/user-repository";
 import { UserAlreadyExistsError } from "../errors/user-already-exists-error";
+import { hash } from "bcryptjs";
 
-let managerRepository: InMemoryManagersRepository;
-let userRepository: InMemoryUsersRepository;
-let sut: CreateManagerService;
+vi.mock("bcryptjs", () => ({
+  hash: vi.fn().mockResolvedValue("hashed-password"),
+}));
 
-describe('Create Manager Service', () => {
+describe("CreateManagerService", () => {
+  let mockManagerRepository: ManagerRepository;
+  let mockUserRepository: UserRepository;
+  let createManagerService: CreateManagerService;
+
   beforeEach(() => {
-    managerRepository = new InMemoryManagersRepository();
-    userRepository = new InMemoryUsersRepository();
-    sut = new CreateManagerService(managerRepository, userRepository);
-  });
-
-  it('should be able to create a new manager', async () => {
-    const { manager } = await sut.execute({
-      name: 'Manager 1',
-      email: 'manager1@example.com',
-      password: 'password123',
-    });
-
-    expect(manager.id).toEqual(expect.any(String));
-  });
-
-  it("should hash the manager password before saving", async () => {
-    const password = "password123";
-
-    const { manager } = await sut.execute({
-      name: "Jane Doe",
-      email: "jane@example.com",
-      password,
-    });
-
-    const user = await userRepository.findByEmail("jane@example.com");
-
-    expect(user?.password_hash).not.toBe(password);
-    const isMatch = await compare(password, user!.password_hash);
-    expect(isMatch).toBe(true);
-  });
-
-  it('should not allow creating a manager with an existing email', async () => {
-    await sut.execute({
-      name: 'Manager 1',
-      email: 'manager1@example.com',
-      password: 'password123',
-    });
-
-    await expect(() =>
-      sut.execute({
-        name: 'Manager 2',
-        email: 'manager1@example.com',
-        password: 'password123',
+    mockManagerRepository = {
+      create: vi.fn().mockResolvedValue({
+        id: "manager-1",
+        userId: "user-1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       }),
-    ).rejects.toThrow(UserAlreadyExistsError);
+    } as unknown as ManagerRepository;
+
+    mockUserRepository = {
+      findByEmail: vi.fn(),
+      create: vi.fn().mockResolvedValue({
+        id: "user-1",
+        name: "John Doe",
+        email: "john.doe@example.com",
+        password_hash: "hashed-password",
+        role: "MANAGER",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    } as unknown as UserRepository;
+
+    createManagerService = new CreateManagerService(
+      mockManagerRepository,
+      mockUserRepository
+    );
+  });
+
+  it("deve criar um gerente com sucesso", async () => {
+    vi.spyOn(mockUserRepository, "findByEmail").mockResolvedValue(null);
+
+    const response = await createManagerService.execute({
+      name: "John Doe",
+      email: "john.doe@example.com",
+      password: "password123",
+    });
+
+    expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(
+      "john.doe@example.com"
+    );
+    expect(mockUserRepository.create).toHaveBeenCalledWith({
+      name: "John Doe",
+      email: "john.doe@example.com",
+      password_hash: "hashed-password",
+      role: "MANAGER",
+    });
+    expect(mockManagerRepository.create).toHaveBeenCalledWith({
+      user: { connect: { id: "user-1" } },
+    });
+
+    expect(response.manager).toEqual({
+      id: "manager-1",
+      userId: "user-1",
+      createdAt: expect.any(Date),
+      updatedAt: expect.any(Date),
+    });
+  });
+
+  it("deve lançar um erro se o email já estiver em uso", async () => {
+    vi.spyOn(mockUserRepository, "findByEmail").mockResolvedValue({
+      id: "existing-user",
+      name: "Existing User",
+      email: "john.doe@example.com",
+      password_hash: "hashed-password",
+      role: "MANAGER",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await expect(
+      createManagerService.execute({
+        name: "John Doe",
+        email: "john.doe@example.com",
+        password: "password123",
+      })
+    ).rejects.toBeInstanceOf(UserAlreadyExistsError);
+
+    expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(
+      "john.doe@example.com"
+    );
+    expect(mockUserRepository.create).not.toHaveBeenCalled();
+    expect(mockManagerRepository.create).not.toHaveBeenCalled();
   });
 });

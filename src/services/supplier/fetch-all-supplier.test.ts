@@ -1,36 +1,56 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { InMemorySuppliersRepository } from "../../repositories/in-memory/in-memory-supplier-repository";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FetchAllSupplierService } from "./fetch-all-supplier";
+import { SupplierRepository } from "../../repositories/supplier-repository";
+import { Supplier } from "@prisma/client";
 
-let supplierRepository: InMemorySuppliersRepository;
-let sut: FetchAllSupplierService;
+describe("FetchAllSupplierService", () => {
+  let supplierRepository: SupplierRepository;
+  let fetchAllSupplierService: FetchAllSupplierService;
 
-describe('Fetch All Supplier Service', () => {
-    beforeEach(() => {
-        supplierRepository = new InMemorySuppliersRepository();
-        sut = new FetchAllSupplierService(supplierRepository);
-    });
+  beforeEach(() => {
+    supplierRepository = {
+      findMany: vi.fn(),
+    } as unknown as SupplierRepository;
 
-    it('should be able to fetch all suppliers', async () => {
-        await supplierRepository.create({
-            social_name: 'Supplier 1',
-            company_name: 'Company 1',
-            phone_number: '123456789',
-            cnpj: '12345678000100'
-        });
+    fetchAllSupplierService = new FetchAllSupplierService(supplierRepository);
+  });
 
-        await supplierRepository.create({
-            social_name: 'Supplier 2',
-            company_name: 'Company 2',
-            phone_number: '987654321',
-            cnpj: '98765432000100'
-        });
+  it("deve retornar todos os fornecedores", async () => {
+    const mockSuppliers: Supplier[] = [
+      {
+        id: "supplier-1",
+        social_name: "Fornecedor 1",
+        company_name: "Empresa 1",
+        phone_number: "123456789",
+        cnpj: "12345678000100",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: "supplier-2",
+        social_name: "Fornecedor 2",
+        company_name: "Empresa 2",
+        phone_number: "987654321",
+        cnpj: "98765432000100",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
 
-        const result = await sut.execute();
-        const suppliers = result.supplier;
+    vi.spyOn(supplierRepository, "findMany").mockResolvedValue(mockSuppliers);
 
-        expect(suppliers).toHaveLength(2);
-        expect(suppliers[0]).toHaveProperty('company_name', 'Company 1');
-        expect(suppliers[1]).toHaveProperty('company_name', 'Company 2');
-    });
+    const response = await fetchAllSupplierService.execute();
+
+    expect(supplierRepository.findMany).toHaveBeenCalledTimes(1);
+    expect(response.supplier).toEqual(mockSuppliers);
+  });
+
+  it("deve retornar um array vazio se não houver fornecedores", async () => {
+    vi.spyOn(supplierRepository, "findMany").mockResolvedValue([]);
+
+    const response = await fetchAllSupplierService.execute();
+
+    expect(supplierRepository.findMany).toHaveBeenCalledTimes(1);
+    expect(response.supplier).toEqual([]);
+  });
 });

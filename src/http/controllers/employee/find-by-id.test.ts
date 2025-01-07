@@ -1,58 +1,80 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { findEmployeeById } from './find-by-id';
-import * as makeFindEmployeeByIdServiceModule from '../../../services/factories/employee/make-find-employee-by-id-service';
-import { NoRecordsFoundError } from '../../../services/errors/no-records-found-error';
+import { describe, it, expect, vi } from "vitest";
+import { findEmployeeById } from "./find-by-id";
+import { FastifyRequest, FastifyReply } from "fastify";
+import { makeFindEmployeeByIdService } from "../../../services/factories/employee/make-find-employee-by-id-service";
+import { NoRecordsFoundError } from "../../../services/errors/no-records-found-error";
 
-test('should find employee by ID successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/employee/make-find-employee-by-id-service");
 
-  app.get('/employees/:id', findEmployeeById);
+describe("findEmployeeById Controller", () => {
+  it("deve retornar um funcionário pelo ID e status 200", async () => {
+    // Mock do serviço
+    const mockFindEmployeeByIdService = {
+      execute: vi.fn().mockResolvedValue({
+        employee: { id: "1", name: "João", email: "joao@email.com" },
+      }),
+    };
+    vi.mocked(makeFindEmployeeByIdService).mockReturnValue(mockFindEmployeeByIdService);
 
-  const mockFindEmployeeByIdService = {
-    execute: vi.fn().mockResolvedValue({
-      employee: { id: '1', name: 'Employee One', email: 'employee1@test.com' },
-    }),
-  };
+    // Mock do request e reply
+    const request = {
+      params: { id: "1" },
+    } as unknown as FastifyRequest;
 
-  vi.spyOn(makeFindEmployeeByIdServiceModule, 'makeFindEmployeeByIdService').mockReturnValue(mockFindEmployeeByIdService);
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-  const response = await app.inject({
-    method: 'GET',
-    url: '/employees/1',
-  });
+    await findEmployeeById(request, reply);
 
-  expect(response.statusCode).toBe(200);
-  expect(response.json()).toEqual({
-    employee: { id: '1', name: 'Employee One', email: 'employee1@test.com' },
-  });
-});
-
-test('should return 404 if no employee is found', async () => {
-  const app = fastify();
-
-  app.get('/employees/:id', findEmployeeById);
-
-  const mockFindEmployeeByIdService = {
-    execute: vi.fn().mockRejectedValue(new NoRecordsFoundError()),
-  };
-
-  vi.spyOn(makeFindEmployeeByIdServiceModule, 'makeFindEmployeeByIdService').mockReturnValue(mockFindEmployeeByIdService);
-
-  // Redirecionar console.error para ignorar erros
-  const originalConsoleError = console.error;
-  console.error = () => {};
-
-  try {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/employees/999', // ID que não existe
+    expect(mockFindEmployeeByIdService.execute).toHaveBeenCalledWith({ id: "1" });
+    expect(reply.status).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
+      employee: { id: "1", name: "João", email: "joao@email.com" },
     });
+  });
 
-    expect(response.statusCode).toBe(404);
-    expect(response.json()).toEqual({ message: 'No records found.' });
-  } finally {
-    // Restaurar console.error
-    console.error = originalConsoleError;
-  }
+  it("deve retornar erro 404 quando nenhum funcionário é encontrado", async () => {
+    // Mock do serviço para lançar NoRecordsFoundError
+    const mockFindEmployeeByIdService = {
+      execute: vi.fn().mockRejectedValue(new NoRecordsFoundError()),
+    };
+    vi.mocked(makeFindEmployeeByIdService).mockReturnValue(mockFindEmployeeByIdService);
+
+    const request = {
+      params: { id: "2" },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await findEmployeeById(request, reply);
+
+    expect(reply.status).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "No records found.",
+    });
+  });
+
+  it("deve lançar erro inesperado", async () => {
+    // Mock do serviço para lançar erro genérico
+    const mockFindEmployeeByIdService = {
+      execute: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
+    };
+    vi.mocked(makeFindEmployeeByIdService).mockReturnValue(mockFindEmployeeByIdService);
+
+    const request = {
+      params: { id: "3" },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await expect(findEmployeeById(request, reply)).rejects.toThrow("Erro inesperado");
+  });
 });

@@ -1,63 +1,62 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { fetchAllSale } from './fetch-all';
-import * as makeFetchAllSaleServiceModule from '../../../services/factories/sale/make-fetch-all-sale-service';
+import { describe, it, expect, vi } from "vitest";
+import { fetchAllSale } from "./fetch-all";
+import { FastifyRequest, FastifyReply } from "fastify";
+import { makeFetchAllSaleService } from "../../../services/factories/sale/make-fetch-all-sale-service";
 
-// Mock do serviço para sucesso
-const mockFetchAllSaleService = {
-    execute: vi.fn().mockResolvedValue({
+vi.mock("../../../services/factories/sale/make-fetch-all-sale-service");
+
+describe("fetchAllSale Controller", () => {
+  it("deve retornar todas as vendas com sucesso", async () => {
+    const mockFetchAllSaleService = {
+      execute: vi.fn().mockResolvedValue({
         sale: [
-            { id: 'sale-1', nf_number: '123', userId: 'user-id', items: [] },
-            { id: 'sale-2', nf_number: '456', userId: 'user-id', items: [] }
-        ]
-    }),
-};
+          { id: "sale-1", nf_number: "NF123", userId: "user-1" },
+          { id: "sale-2", nf_number: "NF124", userId: "user-2" },
+        ],
+      }),
+    };
 
-// Mock do serviço para erro
-const mockFetchAllSaleServiceWithError = {
-    execute: vi.fn().mockRejectedValue(new Error('Simulated error')),
-};
+    vi.mocked(makeFetchAllSaleService).mockReturnValue(mockFetchAllSaleService);
 
-vi.spyOn(makeFetchAllSaleServiceModule, 'makeFetchAllSaleService').mockReturnValue(mockFetchAllSaleService);
+    const request = {} as unknown as FastifyRequest;
 
-test('should fetch all sales successfully', async () => {
-    const app = fastify();
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-    // Registrar o controlador
-    app.get('/sales', fetchAllSale);
+    await fetchAllSale(request, reply);
 
-    // Fazer a requisição
-    const response = await app.inject({
-        method: 'GET',
-        url: '/sales',
+    expect(mockFetchAllSaleService.execute).toHaveBeenCalled();
+    expect(reply.code).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
+      sale: [
+        { id: "sale-1", nf_number: "NF123", userId: "user-1" },
+        { id: "sale-2", nf_number: "NF124", userId: "user-2" },
+      ],
     });
+  });
 
-    // Verificar a resposta
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({
-        sale: [
-            { id: 'sale-1', nf_number: '123', userId: 'user-id', items: [] },
-            { id: 'sale-2', nf_number: '456', userId: 'user-id', items: [] }
-        ]
+  it("deve retornar erro 500 em caso de erro inesperado", async () => {
+    const mockFetchAllSaleService = {
+      execute: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
+    };
+
+    vi.mocked(makeFetchAllSaleService).mockReturnValue(mockFetchAllSaleService);
+
+    const request = {} as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await fetchAllSale(request, reply);
+
+    expect(mockFetchAllSaleService.execute).toHaveBeenCalled();
+    expect(reply.code).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "Internal Server Error",
     });
-});
-
-test('should return 500 if an error occurs', async () => {
-    const app = fastify();
-
-    // Configurar o mock para retornar um erro
-    vi.spyOn(makeFetchAllSaleServiceModule, 'makeFetchAllSaleService').mockReturnValue(mockFetchAllSaleServiceWithError);
-
-    // Registrar o controlador
-    app.get('/sales', fetchAllSale);
-
-    // Fazer a requisição
-    const response = await app.inject({
-        method: 'GET',
-        url: '/sales',
-    });
-
-    // Verificar a resposta
-    expect(response.statusCode).toBe(500);
-    expect(response.json()).toEqual({ message: 'Internal Server Error' });
+  });
 });

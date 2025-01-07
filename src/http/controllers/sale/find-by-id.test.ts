@@ -1,84 +1,112 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { findSaleById } from './find-by-id';
-import * as makeFindSaleByIdServiceModule from '../../../services/factories/sale/make-find-sale-by-id-service';
+import { describe, it, expect, vi } from "vitest";
+import { findSaleById } from "./find-by-id";
+import { FastifyRequest, FastifyReply } from "fastify";
+import { makeFindSaleByIdService } from "../../../services/factories/sale/make-find-sale-by-id-service";
 
-// Mock do serviço para sucesso
-const mockFindSaleByIdService = {
-    execute: vi.fn().mockResolvedValue({
-        sale: { id: 'sale-1', nf_number: '123', userId: 'user-id', items: [] }
-    }),
-};
+vi.mock("../../../services/factories/sale/make-find-sale-by-id-service");
 
-// Mock do serviço para erro
-const mockFindSaleByIdServiceWithError = {
-    execute: vi.fn().mockRejectedValue(new Error('Simulated error')),
-};
+describe("findSaleById Controller", () => {
+  it("deve retornar a venda com sucesso quando o ID for válido", async () => {
+    const mockFindSaleByIdService = {
+      execute: vi.fn().mockResolvedValue({
+        sale: { id: "sale-1", nf_number: "NF123", userId: "user-1" },
+      }),
+    };
 
-// Mock do serviço para venda não encontrada
-const mockFindSaleByIdServiceWithNotFound = {
-    execute: vi.fn().mockResolvedValue({
-        sale: null
-    }),
-};
+    vi.mocked(makeFindSaleByIdService).mockReturnValue(mockFindSaleByIdService);
 
-vi.spyOn(makeFindSaleByIdServiceModule, 'makeFindSaleByIdService').mockReturnValue(mockFindSaleByIdService);
+    const request = {
+      params: { id: "sale-1" },
+    } as unknown as FastifyRequest;
 
-test('should fetch sale by ID successfully', async () => {
-    const app = fastify();
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-    // Registrar o controlador
-    app.get('/sales/:id', findSaleById);
+    await findSaleById(request, reply);
 
-    // Fazer a requisição
-    const response = await app.inject({
-        method: 'GET',
-        url: '/sales/sale-1',
+    expect(mockFindSaleByIdService.execute).toHaveBeenCalledWith({ saleId: "sale-1" });
+    expect(reply.code).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
+      sale: { id: "sale-1", nf_number: "NF123", userId: "user-1" },
     });
+  });
 
-    // Verificar a resposta
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({
-        sale: { id: 'sale-1', nf_number: '123', userId: 'user-id', items: [] }
+  it("deve retornar erro 404 quando a venda não for encontrada", async () => {
+    const mockFindSaleByIdService = {
+      execute: vi.fn().mockResolvedValue({ sale: null }),
+    };
+
+    vi.mocked(makeFindSaleByIdService).mockReturnValue(mockFindSaleByIdService);
+
+    const request = {
+      params: { id: "invalid-id" },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await findSaleById(request, reply);
+
+    expect(mockFindSaleByIdService.execute).toHaveBeenCalledWith({ saleId: "invalid-id" });
+    expect(reply.code).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({ message: "Sale not found" });
+  });
+
+  it("deve retornar erro 500 em caso de erro inesperado", async () => {
+    const mockFindSaleByIdService = {
+      execute: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
+    };
+
+    vi.mocked(makeFindSaleByIdService).mockReturnValue(mockFindSaleByIdService);
+
+    const request = {
+      params: { id: "sale-1" },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await findSaleById(request, reply);
+
+    expect(mockFindSaleByIdService.execute).toHaveBeenCalledWith({ saleId: "sale-1" });
+    expect(reply.code).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({ message: "Internal Server Error" });
+  });
+
+  it("deve retornar erro 500 se o parâmetro ID estiver ausente", async () => {
+    const mockFindSaleByIdService = {
+      execute: vi.fn(),
+    };
+  
+    vi.mocked(makeFindSaleByIdService).mockReturnValue(mockFindSaleByIdService);
+  
+    const request = {
+      params: {}, // Parâmetro ID ausente
+    } as unknown as FastifyRequest;
+  
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+  
+    await findSaleById(request, reply);
+  
+    // Garantir que o serviço não foi chamado com um ID inválido
+    expect(mockFindSaleByIdService.execute).toHaveBeenCalledWith({
+      saleId: undefined,
     });
-});
-
-test('should return 404 if sale is not found', async () => {
-    const app = fastify();
-
-    // Configurar o mock para retorno de venda não encontrada
-    vi.spyOn(makeFindSaleByIdServiceModule, 'makeFindSaleByIdService').mockReturnValue(mockFindSaleByIdServiceWithNotFound);
-
-    // Registrar o controlador
-    app.get('/sales/:id', findSaleById);
-
-    // Fazer a requisição
-    const response = await app.inject({
-        method: 'GET',
-        url: '/sales/sale-999',
+  
+    // Validar o retorno do erro
+    expect(reply.code).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "Internal Server Error",
     });
-
-    // Verificar a resposta
-    expect(response.statusCode).toBe(404);
-    expect(response.json()).toEqual({ message: 'Sale not found' });
-});
-
-test('should return 500 if an error occurs', async () => {
-    const app = fastify();
-
-    // Configurar o mock para erro
-    vi.spyOn(makeFindSaleByIdServiceModule, 'makeFindSaleByIdService').mockReturnValue(mockFindSaleByIdServiceWithError);
-
-    // Registrar o controlador
-    app.get('/sales/:id', findSaleById);
-
-    // Fazer a requisição
-    const response = await app.inject({
-        method: 'GET',
-        url: '/sales/sale-1',
-    });
-
-    // Verificar a resposta
-    expect(response.statusCode).toBe(500);
-    expect(response.json()).toEqual({ message: 'Internal Server Error' });
+  });
+  
 });

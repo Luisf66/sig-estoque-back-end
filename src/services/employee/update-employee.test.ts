@@ -1,114 +1,135 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { InMemoryEmployeesRepository } from "../../repositories/in-memory/in-memory-employee-repository";
-import { InMemoryUsersRepository } from "../../repositories/in-memory/in-memory-users-repository";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { UpdateEmployeeService } from "./update-employee";
+import { EmployeeRepository } from "../../repositories/employee-repository";
+import { UserRepository } from "../../repositories/user-repository";
 import { hash } from "bcryptjs";
 
-let employeeRepository: InMemoryEmployeesRepository;
-let userRepository: InMemoryUsersRepository;
-let sut: UpdateEmployeeService;
+vi.mock("bcryptjs", () => ({
+  hash: vi.fn(),
+}));
 
-describe("Update Employee Service", () => {
+describe("UpdateEmployeeService", () => {
+  let updateEmployeeService: UpdateEmployeeService;
+  let mockEmployeeRepository: { findByUserId: vi.Mock; update: vi.Mock };
+  let mockUserRepository: { findById: vi.Mock; update: vi.Mock };
+
   beforeEach(() => {
-    employeeRepository = new InMemoryEmployeesRepository();
-    userRepository = new InMemoryUsersRepository();
-    sut = new UpdateEmployeeService(employeeRepository, userRepository);
+    mockEmployeeRepository = {
+      findByUserId: vi.fn(),
+      update: vi.fn(),
+    };
+
+    mockUserRepository = {
+      findById: vi.fn(),
+      update: vi.fn(),
+    };
+
+    updateEmployeeService = new UpdateEmployeeService(
+      mockEmployeeRepository as unknown as EmployeeRepository,
+      mockUserRepository as unknown as UserRepository
+    );
   });
 
-  it("should be able to update an employee", async () => {
-    const user = await userRepository.create({
-      name: "John Doe",
-      email: "john.doe@example.com",
+  it("deve atualizar um funcionário com sucesso", async () => {
+    const userMock = {
+      id: "user-1",
+      name: "Old Name",
+      email: "oldemail@example.com",
+      password_hash: "hashedpassword",
       role: "EMPLOYEE",
-      password_hash: await hash("123456", 6),
+    };
+
+    const employeeMock = {
+      id: "employee-1",
+      userId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const updatedEmployeeMock = {
+      ...employeeMock,
+      updatedAt: new Date(),
+    };
+
+    mockUserRepository.findById.mockResolvedValueOnce(userMock);
+    mockUserRepository.update.mockResolvedValueOnce(undefined);
+    mockEmployeeRepository.findByUserId.mockResolvedValueOnce(employeeMock);
+    mockEmployeeRepository.update.mockResolvedValueOnce(updatedEmployeeMock);
+
+    const response = await updateEmployeeService.execute({
+      userId: "user-1",
+      name: "New Name",
+      email: "newemail@example.com",
     });
 
-    const employee = await employeeRepository.create({
-      user: { connect: { id: user.id } },
-    });
-
-    const updatedEmployee = await sut.execute({
-      userId: user.id,
-      name: "John Updated",
-      email: "john.updated@example.com",
-      password: "newpassword123",
-    });
-
-    const updatedUser = await userRepository.findById(user.id);
-
-    expect(updatedUser).toHaveProperty("name", "John Updated");
-    expect(updatedUser).toHaveProperty("email", "john.updated@example.com");
-
-    expect(updatedEmployee).not.toBeNull();
-    expect(updatedEmployee.employee).not.toBeNull();
-    expect(updatedEmployee.employee).toHaveProperty("id", employee.id);
-    expect(updatedEmployee.employee).toHaveProperty("userId", user.id);
-  });
-
-  it("should update an employee without changing the password", async () => {
-    const user = await userRepository.create({
-      name: "Jane Doe",
-      email: "jane.doe@example.com",
+    expect(mockUserRepository.findById).toHaveBeenCalledWith("user-1");
+    expect(mockUserRepository.update).toHaveBeenCalledWith({
+      id: "user-1",
+      name: "New Name",
+      email: "newemail@example.com",
       role: "EMPLOYEE",
-      password_hash: await hash("123456", 6),
+      password_hash: userMock.password_hash,
     });
-
-    const employee = await employeeRepository.create({
-      user: { connect: { id: user.id } },
-    });
-
-    const updatedEmployee = await sut.execute({
-      userId: user.id,
-      name: "Jane Updated",
-      email: "jane.updated@example.com",
-      // Não passando a senha
-    });
-
-    const updatedUser = await userRepository.findById(user.id);
-
-    expect(updatedUser).toHaveProperty("name", "Jane Updated");
-    expect(updatedUser).toHaveProperty("email", "jane.updated@example.com");
-    expect(updatedUser?.password_hash).toEqual(user.password_hash); // Verifica se a senha não foi alterada
-
-    expect(updatedEmployee).not.toBeNull();
-    expect(updatedEmployee.employee).not.toBeNull();
-    expect(updatedEmployee.employee).toHaveProperty("id", employee.id);
-    expect(updatedEmployee.employee).toHaveProperty("userId", user.id);
+    expect(mockEmployeeRepository.findByUserId).toHaveBeenCalledWith("user-1");
+    expect(mockEmployeeRepository.update).toHaveBeenCalledWith(employeeMock);
+    expect(response).toEqual({ employee: updatedEmployeeMock });
   });
 
-  it("should throw an error if user is not found", async () => {
+  it("deve lançar um erro se o usuário não for encontrado", async () => {
+    mockUserRepository.findById.mockResolvedValueOnce(null);
+
     await expect(
-      sut.execute({
-        userId: "non-existent-user-id",
-        name: "John Doe",
-        email: "john.doe@example.com",
+      updateEmployeeService.execute({
+        userId: "user-1",
+        name: "New Name",
+        email: "newemail@example.com",
       })
     ).rejects.toThrow("User not found.");
+
+    expect(mockUserRepository.findById).toHaveBeenCalledWith("user-1");
   });
 
-  it("should throw an error if updating employee fails", async () => {
-    const user = await userRepository.create({
-      name: "John Doe",
-      email: "john.doe@example.com",
+  it("deve atualizar o funcionário e a senha se fornecida", async () => {
+    const userMock = {
+      id: "user-1",
+      name: "Old Name",
+      email: "oldemail@example.com",
+      password_hash: "hashedpassword",
       role: "EMPLOYEE",
-      password_hash: await hash("123456", 6),
+    };
+
+    const employeeMock = {
+      id: "employee-1",
+      userId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const updatedEmployeeMock = {
+      ...employeeMock,
+      updatedAt: new Date(),
+    };
+
+    mockUserRepository.findById.mockResolvedValueOnce(userMock);
+    vi.mocked(hash).mockResolvedValueOnce("newhashedpassword");
+    mockUserRepository.update.mockResolvedValueOnce(undefined);
+    mockEmployeeRepository.findByUserId.mockResolvedValueOnce(employeeMock);
+    mockEmployeeRepository.update.mockResolvedValueOnce(updatedEmployeeMock);
+
+    const response = await updateEmployeeService.execute({
+      userId: "user-1",
+      name: "New Name",
+      email: "newemail@example.com",
+      password: "newpassword",
     });
 
-    await employeeRepository.create({
-      user: { connect: { id: user.id } },
+    expect(mockUserRepository.update).toHaveBeenCalledWith({
+      id: "user-1",
+      name: "New Name",
+      email: "newemail@example.com",
+      role: "EMPLOYEE",
+      password_hash: "newhashedpassword",
     });
-
-    vi.spyOn(employeeRepository, "update").mockImplementationOnce(() => {
-      throw new Error("Update failed");
-    });
-
-    await expect(
-      sut.execute({
-        userId: user.id,
-        name: "John Updated",
-        email: "john.updated@example.com",
-        password: "newpassword123",
-      })
-    ).rejects.toThrow("Error updating employee: Error: Update failed");
+    expect(response).toEqual({ employee: updatedEmployeeMock });
   });
 });

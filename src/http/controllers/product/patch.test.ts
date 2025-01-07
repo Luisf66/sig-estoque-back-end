@@ -1,119 +1,114 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { patchProduct } from './patch';
-import * as makePatchProductServiceModule from '../../../services/factories/product/make-patch-product-service';
-import { NoRecordsFoundError } from '../../../services/errors/no-records-found-error';
+import { describe, it, expect, vi } from "vitest";
+import { patchProduct } from "./patch";
+import { FastifyReply, FastifyRequest } from "fastify";
+import { makePatchProductService } from "../../../services/factories/product/make-patch-product-service";
+import { NoRecordsFoundError } from "../../../services/errors/no-records-found-error";
 
-test('should patch a product successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/product/make-patch-product-service");
 
-  app.patch('/products/:id', patchProduct);
+describe("patchProduct Controller", () => {
+  it("deve atualizar o produto com sucesso", async () => {
+    const mockPatchProductService = {
+      handle: vi.fn().mockResolvedValue({
+        product: {
+          id: "1",
+          name: "Produto Atualizado",
+          description: "Descrição Atualizada",
+          price: 100,
+          quantity_in_stock: 50,
+          batch: "L12345",
+        },
+      }),
+    };
 
-  const mockPatchProductService = {
-    handle: vi.fn().mockResolvedValue({
+    vi.mocked(makePatchProductService).mockReturnValue(mockPatchProductService);
+
+    const request = {
+      params: { id: "1" },
+      body: {
+        name: "Produto Atualizado",
+        description: "Descrição Atualizada",
+        price: 100,
+        quantity_in_stock: 50,
+        batch: "L12345",
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await patchProduct(request, reply);
+
+    expect(mockPatchProductService.handle).toHaveBeenCalledWith({
+      id: "1",
+      data: {
+        name: "Produto Atualizado",
+        description: "Descrição Atualizada",
+        price: 100,
+        quantity_in_stock: 50,
+        batch: "L12345",
+      },
+    });
+    expect(reply.code).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
       product: {
-        id: '1',
-        name: 'Updated Product Name',
-        description: 'Updated Description',
-        price: 20.99,
-        supplierId: 'supplier1',
-        quantity_in_stock: 100,
-        batch: 'BATCH01'
-      },
-    }),
-  };
-
-  vi.spyOn(makePatchProductServiceModule, 'makePatchProductService').mockReturnValue(mockPatchProductService);
-
-  const response = await app.inject({
-    method: 'PATCH',
-    url: '/products/1',
-    payload: {
-      name: 'Updated Product Name',
-      description: 'Updated Description',
-      price: 20.99,
-      quantity_in_stock: 100,
-      batch: 'BATCH01',
-    },
-  });
-
-  expect(response.statusCode).toBe(200);
-  expect(response.json()).toEqual({
-    product: {
-      id: '1',
-      name: 'Updated Product Name',
-      description: 'Updated Description',
-      price: 20.99,
-      supplierId: 'supplier1',
-      quantity_in_stock: 100,
-      batch: 'BATCH01',
-    },
-  });
-});
-
-test('should return 404 if the product is not found', async () => {
-  const app = fastify();
-
-  app.patch('/products/:id', patchProduct);
-
-  const mockPatchProductService = {
-    handle: vi.fn().mockRejectedValue(new NoRecordsFoundError()),
-  };
-
-  vi.spyOn(makePatchProductServiceModule, 'makePatchProductService').mockReturnValue(mockPatchProductService);
-
-  const response = await app.inject({
-    method: 'PATCH',
-    url: '/products/999',
-    payload: {
-      name: 'Updated Product Name',
-      description: 'Updated Description',
-      price: 20.99,
-      quantity_in_stock: 100,
-      batch: 'BATCH01',
-    },
-  });
-
-  expect(response.statusCode).toBe(404);
-  expect(response.json()).toEqual({ message: 'No records found.' });
-});
-
-test('should return 500 if there is an internal server error', async () => {
-  const app = fastify();
-
-  app.patch('/products/:id', patchProduct);
-
-  const mockPatchProductService = {
-    handle: vi.fn().mockRejectedValue(new Error('Simulated internal error')),
-  };
-
-  vi.spyOn(makePatchProductServiceModule, 'makePatchProductService').mockReturnValue(mockPatchProductService);
-
-  // Redirecionar console.error para ignorar erros
-  const originalConsoleError = console.error;
-  console.error = () => {};
-
-  try {
-    const response = await app.inject({
-      method: 'PATCH',
-      url: '/products/1',
-      payload: {
-        name: 'Updated Product Name',
-        description: 'Updated Description',
-        price: 20.99,
-        quantity_in_stock: 100,
-        batch: 'BATCH01',
+        id: "1",
+        name: "Produto Atualizado",
+        description: "Descrição Atualizada",
+        price: 100,
+        quantity_in_stock: 50,
+        batch: "L12345",
       },
     });
+  });
 
-    expect(response.statusCode).toBe(500);
-    expect(response.json()).toEqual({
-      error: 'Internal Server Error',
-      message: 'Simulated internal error',
-      statusCode: 500,
+  it("deve retornar erro 404 se o produto não for encontrado", async () => {
+    const mockPatchProductService = {
+      handle: vi.fn().mockRejectedValue(new NoRecordsFoundError()),
+    };
+
+    vi.mocked(makePatchProductService).mockReturnValue(mockPatchProductService);
+
+    const request = {
+      params: { id: "99" },
+      body: {
+        name: "Novo Nome",
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await patchProduct(request, reply);
+
+    expect(mockPatchProductService.handle).toHaveBeenCalledWith({
+      id: "99",
+      data: { name: "Novo Nome" },
     });
-  } finally {
-    // Restaurar console.error
-    console.error = originalConsoleError;
-  }
+    expect(reply.status).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({ message: "No records found." });
+  });
+
+  it("deve lançar erro de validação se o corpo da requisição for inválido", async () => {
+    const request = {
+      params: { id: "1" },
+      body: {
+        price: "não é um número", // Campo inválido
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await expect(patchProduct(request, reply)).rejects.toThrowError();
+
+    expect(reply.code).not.toHaveBeenCalledWith(200);
+    expect(reply.send).not.toHaveBeenCalled();
+  });
 });

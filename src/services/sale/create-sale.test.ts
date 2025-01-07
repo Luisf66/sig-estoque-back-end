@@ -1,180 +1,121 @@
-import { beforeEach, describe, it, expect, vi } from 'vitest';
-import { CreateSaleService } from './create-sale';
-import { InMemorySaleRepository } from '../../repositories/in-memory/in-memory-sale-repository';
-import { InMemoryItemRepository } from '../../repositories/in-memory/in-memory-item-repository';
-import { InMemoryProductsRepository } from '../../repositories/in-memory/in-memory-products-repository';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { CreateSaleService } from "./create-sale";
+import { SaleRepository } from "../../repositories/sale-repository";
+import { ItemRepository } from "../../repositories/item-repository";
+import { ProductRepository } from "../../repositories/product-repository";
 
-let saleRepository: InMemorySaleRepository;
-let itemRepository: InMemoryItemRepository;
-let productRepository: InMemoryProductsRepository;
-let sut: CreateSaleService;
+describe("CreateSaleService", () => {
+  let mockSaleRepository: SaleRepository;
+  let mockItemRepository: ItemRepository;
+  let mockProductRepository: ProductRepository;
+  let createSaleService: CreateSaleService;
 
-describe('Create Sale Service', () => {
   beforeEach(() => {
-    saleRepository = new InMemorySaleRepository();
-    itemRepository = new InMemoryItemRepository();
-    productRepository = new InMemoryProductsRepository();
-    sut = new CreateSaleService(saleRepository, itemRepository, productRepository);
+    mockSaleRepository = {
+      create: vi.fn(),
+      updateSubTotal: vi.fn(),
+    } as unknown as SaleRepository;
+
+    mockItemRepository = {
+      create: vi.fn(),
+    } as unknown as ItemRepository;
+
+    mockProductRepository = {
+      findManyByIds: vi.fn(),
+      reduceStock: vi.fn(),
+    } as unknown as ProductRepository;
+
+    createSaleService = new CreateSaleService(
+      mockSaleRepository,
+      mockItemRepository,
+      mockProductRepository
+    );
   });
 
-  it('should be able to create a new sale', async () => {
-    // Cria produtos no repositório
-    const product1 = await productRepository.create({
-      id: 'product1',
-      name: 'Product 1',
-      description: 'Product 1 description',
-      price: 100,
-      quantity_in_stock: 10,
-      batch: 'ABC123',
-      is_active: true,
+  it("deve criar uma nova venda com itens válidos", async () => {
+    const mockSale = { id: "sale-1", nf_number: "12345", userId: "user-1", subTotal: 0 };
+    const mockProducts = [
+      { id: "product-1", name: "Product 1", is_active: true, quantity_in_stock: 10 },
+      { id: "product-2", name: "Product 2", is_active: true, quantity_in_stock: 5 },
+    ];
+    const items = [
+      { productId: "product-1", quantity: 2, value: 100 },
+      { productId: "product-2", quantity: 3, value: 50 },
+    ];
+    const createdItems = [
+      { id: "item-1", saleId: "sale-1", productId: "product-1", quantity: 2, value: 100 },
+      { id: "item-2", saleId: "sale-1", productId: "product-2", quantity: 3, value: 50 },
+    ];
+
+    vi.spyOn(mockSaleRepository, "create").mockResolvedValue(mockSale);
+    vi.spyOn(mockProductRepository, "findManyByIds").mockResolvedValue(mockProducts);
+    vi.spyOn(mockItemRepository, "create")
+      .mockResolvedValueOnce(createdItems[0])
+      .mockResolvedValueOnce(createdItems[1]);
+    vi.spyOn(mockSaleRepository, "updateSubTotal").mockResolvedValue({
+      ...mockSale,
+      subTotal: 350,
     });
 
-    const product2 = await productRepository.create({
-      id: 'product2',
-      name: 'Product 2',
-      description: 'Product 2 description',
-      price: 150,
-      quantity_in_stock: 5,
-      batch: 'DEF456',
-      is_active: true,
+    const result = await createSaleService.handle({
+      nf_number: "12345",
+      userId: "user-1",
+      items,
     });
 
-    // Debug: Exibir informações dos produtos criados
-    //console.log("Produtos criados:", product1, product2);
-
-    const { newSale, items } = await sut.handle({
-      nf_number: 'NF123456',
-      userId: 'user1',
-      items: [
-        {
-          productId: product1.id,
-          quantity: 2,
-          value: 100,
-        },
-        {
-          productId: product2.id,
-          quantity: 1,
-          value: 150,
-        },
-      ],
+    expect(mockSaleRepository.create).toHaveBeenCalledWith({
+      nf_number: "12345",
+      user: { connect: { id: "user-1" } },
     });
-
-    expect(newSale.id).toEqual(expect.any(String));
-    expect(newSale.nf_number).toBe('NF123456');
-    expect(newSale.subTotal).toBe(350);
-    expect(items.length).toBe(2);
-    expect(items[0].productId).toBe(product1.id);
-    expect(items[1].productId).toBe(product2.id);
-
-    // Verifica se o estoque dos produtos foi atualizado corretamente
-    const updatedProduct1 = await productRepository.findById(product1.id);
-    const updatedProduct2 = await productRepository.findById(product2.id);
-
-    // Debug: Exibir informações dos produtos atualizados
-    //console.log("Produtos atualizados:", updatedProduct1, updatedProduct2);
-
-    expect(updatedProduct1?.quantity_in_stock).toBe(8);
-    expect(updatedProduct2?.quantity_in_stock).toBe(4);
+    expect(mockProductRepository.findManyByIds).toHaveBeenCalledWith(["product-1", "product-2"]);
+    expect(mockProductRepository.reduceStock).toHaveBeenCalledWith("product-1", 2);
+    expect(mockProductRepository.reduceStock).toHaveBeenCalledWith("product-2", 3);
+    expect(mockItemRepository.create).toHaveBeenCalledTimes(2);
+    expect(mockSaleRepository.updateSubTotal).toHaveBeenCalledWith("sale-1", 350);
+    expect(result).toEqual({
+      newSale: { ...mockSale, subTotal: 350 },
+      items: createdItems,
+    });
   });
 
-  it('should throw an error if a product is not found', async () => {
-    await expect(() =>
-      sut.handle({
-        nf_number: 'NF123456',
-        userId: 'user1',
-        items: [
-          {
-            productId: 'nonexistent-product',
-            quantity: 1,
-            value: 100,
-          },
-        ],
-      })
-    ).rejects.toThrow('Product not found');
+  it("deve lançar erro se algum produto não for encontrado", async () => {
+    const items = [{ productId: "product-1", quantity: 2, value: 100 }];
+    vi.spyOn(mockProductRepository, "findManyByIds").mockResolvedValue([]);
+
+    await expect(
+      createSaleService.handle({ nf_number: "12345", userId: "user-1", items })
+    ).rejects.toThrowError("Product not found");
+
+    expect(mockProductRepository.findManyByIds).toHaveBeenCalledWith(["product-1"]);
   });
 
-  it('should throw an error if a product is inactive', async () => {
-    const inactiveProduct = await productRepository.create({
-      id: 'inactiveProduct',
-      name: 'Inactive Product',
-      description: 'Inactive Product description',
-      price: 100,
-      quantity_in_stock: 10,
-      batch: 'GHI789',
-      is_active: false,
-    });
+  it("deve lançar erro se algum produto estiver inativo", async () => {
+    const mockProducts = [
+      { id: "product-1", name: "Product 1", is_active: false, quantity_in_stock: 10 },
+    ];
+    const items = [{ productId: "product-1", quantity: 2, value: 100 }];
 
-    // Debug: Exibir informações do produto inativo
-    //console.log("Produto inativo criado:", inactiveProduct);
+    vi.spyOn(mockProductRepository, "findManyByIds").mockResolvedValue(mockProducts);
 
-    await expect(() =>
-      sut.handle({
-        nf_number: 'NF123456',
-        userId: 'user1',
-        items: [
-          {
-            productId: inactiveProduct.id,
-            quantity: 1,
-            value: 100,
-          },
-        ],
-      })
-    ).rejects.toThrow(`Product ${inactiveProduct.name} is inactive`);
+    await expect(
+      createSaleService.handle({ nf_number: "12345", userId: "user-1", items })
+    ).rejects.toThrowError("Product Product 1 is inactive");
+
+    expect(mockProductRepository.findManyByIds).toHaveBeenCalledWith(["product-1"]);
   });
 
-  it('should throw an error if a stock product is null', async () => {
-    const Product = await productRepository.create({
-      id: 'ProductNull',
-      name: 'Empty Product',
-      description: 'Null Product description',
-      price: 100,
-      quantity_in_stock: null,
-      batch: '158HTQ',
-      is_active: true,
-    });
+  it("deve lançar erro se o estoque for insuficiente", async () => {
+    const mockProducts = [
+      { id: "product-1", name: "Product 1", is_active: true, quantity_in_stock: 1 },
+    ];
+    const items = [{ productId: "product-1", quantity: 2, value: 100 }];
 
-    await expect(() =>
-      sut.handle({
-        nf_number: 'NF1234',
-        userId: 'user1',
-        items: [
-          {
-            productId: Product.id,
-            quantity: 0,
-            value: 100,
-          },
-        ],
-      })
-    ).rejects.toThrow(`Stock quantity for product ${Product.name} is undefined`);
-  });
+    vi.spyOn(mockProductRepository, "findManyByIds").mockResolvedValue(mockProducts);
 
+    await expect(
+      createSaleService.handle({ nf_number: "12345", userId: "user-1", items })
+    ).rejects.toThrowError("Insufficient stock for product Product 1");
 
-  it('should throw an error if there is insufficient stock', async () => {
-    const product = await productRepository.create({
-      id: 'product',
-      name: 'Product',
-      description: 'Product description',
-      price: 100,
-      quantity_in_stock: 1,
-      batch: 'JKL012',
-      is_active: true,
-    });
-
-    // Debug: Exibir informações do produto com estoque insuficiente
-    //console.log("Produto criado com estoque insuficiente:", product);
-
-    await expect(() =>
-      sut.handle({
-        nf_number: 'NF123456',
-        userId: 'user1',
-        items: [
-          {
-            productId: product.id,
-            quantity: 2,
-            value: 100,
-          },
-        ],
-      })
-    ).rejects.toThrow(`Insufficient stock for product ${product.name}`);
+    expect(mockProductRepository.findManyByIds).toHaveBeenCalledWith(["product-1"]);
   });
 });

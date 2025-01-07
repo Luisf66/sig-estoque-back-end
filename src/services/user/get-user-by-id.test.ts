@@ -1,35 +1,46 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { InMemoryUsersRepository } from "../../repositories/in-memory/in-memory-users-repository";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GetUserByIdService } from "./get-user-by-id";
+import { UserRepository } from "../../repositories/user-repository";
+import { User } from "@prisma/client";
 import { ResourceNotFoundError } from "../errors/resource-not-found-error";
 
-let userRepository: InMemoryUsersRepository;
-let sut: GetUserByIdService;
+describe("GetUserByIdService", () => {
+  let userRepository: UserRepository;
+  let getUserByIdService: GetUserByIdService;
 
-describe('Get User By ID Service', () => {
   beforeEach(() => {
-    userRepository = new InMemoryUsersRepository();
-    sut = new GetUserByIdService(userRepository);
+    userRepository = {
+      findById: vi.fn(),
+    } as unknown as UserRepository;
+
+    getUserByIdService = new GetUserByIdService(userRepository);
   });
 
-  it('should return the user when the user exists', async () => {
-    const createdUser = await userRepository.create({
-      name: 'John Doe',
-      email: 'johndoe@example.com',
-      password_hash: 'hashed_password',
-      role: 'EMPLOYEE',
-    });
+  it("deve retornar o usuário se ele for encontrado", async () => {
+    const mockUser: User = {
+      id: "user-1",
+      name: "João Silva",
+      email: "joao@example.com",
+      password: "hashedpassword",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-    const result = await sut.execute({ userId: createdUser.id });
-    const user = result.user;
+    vi.spyOn(userRepository, "findById").mockResolvedValue(mockUser);
 
-    expect(user).toHaveProperty('id', createdUser.id);
-    expect(user).toHaveProperty('name', 'John Doe');
-    expect(user).toHaveProperty('email', 'johndoe@example.com');
-    expect(user).toHaveProperty('role', 'EMPLOYEE');
+    const response = await getUserByIdService.execute({ userId: "user-1" });
+
+    expect(userRepository.findById).toHaveBeenCalledWith("user-1");
+    expect(userRepository.findById).toHaveBeenCalledTimes(1);
+    expect(response.user).toEqual(mockUser);
   });
 
-  it('should throw a ResourceNotFoundError when the user does not exist', async () => {
-    await expect(sut.execute({ userId: 'non-existing-id' })).rejects.toThrow(ResourceNotFoundError);
+  it("deve lançar um erro se o usuário não for encontrado", async () => {
+    vi.spyOn(userRepository, "findById").mockResolvedValue(null);
+
+    await expect(getUserByIdService.execute({ userId: "user-2" })).rejects.toThrow(ResourceNotFoundError);
+
+    expect(userRepository.findById).toHaveBeenCalledWith("user-2");
+    expect(userRepository.findById).toHaveBeenCalledTimes(1);
   });
 });

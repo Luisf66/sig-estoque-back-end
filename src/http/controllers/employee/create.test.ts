@@ -1,55 +1,92 @@
-import { test, expect, vi } from 'vitest'; // Importa o 'vi' para criar mocks
-import fastify from 'fastify';
-import { createEmployee } from './create';
-import * as makeCreateEmployeeServiceModule from '../../../services/factories/employee/make-create-employee-service';
-import { UserAlreadyExistsError } from '../../../services/errors/user-already-exists-error';
+import { describe, it, expect, vi } from "vitest";
+import { createEmployee } from "./create";
+import { FastifyRequest, FastifyReply } from "fastify";
+import { UserAlreadyExistsError } from "../../../services/errors/user-already-exists-error";
+import { makeCreateEmployeeService } from "../../../services/factories/employee/make-create-employee-service";
 
-test('should create a new employee successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/employee/make-create-employee-service");
 
-  app.post('/employees', createEmployee);
+describe("createEmployee Controller", () => {
+  it("deve criar um novo funcionário e retornar status 201", async () => {
+    // Mock do serviço
+    const mockCreateEmployeeService = {
+      execute: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.mocked(makeCreateEmployeeService).mockReturnValue(mockCreateEmployeeService);
 
-  const mockCreateEmployeeService = {
-    execute: vi.fn().mockResolvedValue({}),
-  };
+    // Mock do request e reply
+    const request = {
+      body: {
+        name: "João",
+        email: "joao@email.com",
+        password: "123456",
+      },
+    } as FastifyRequest;
 
-  vi.spyOn(makeCreateEmployeeServiceModule, 'makeCreateEmployeeService').mockReturnValue(mockCreateEmployeeService);
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-  const response = await app.inject({
-    method: 'POST',
-    url: '/employees',
-    payload: {
-      name: 'Test Employee',
-      email: 'employee@test.com',
-      password: 'password123',
-    },
+    await createEmployee(request, reply);
+
+    expect(mockCreateEmployeeService.execute).toHaveBeenCalledWith({
+      name: "João",
+      email: "joao@email.com",
+      password: "123456",
+    });
+
+    expect(reply.status).toHaveBeenCalledWith(201);
+    expect(reply.send).toHaveBeenCalled();
   });
 
-  expect(response.statusCode).toBe(201);
-  expect(response.body).toBe('');
-});
+  it("deve retornar erro 409 se o email já existir", async () => {
+    // Mock do serviço para lançar erro
+    const mockCreateEmployeeService = {
+      execute: vi.fn().mockRejectedValue(new UserAlreadyExistsError()),
+    };
+    vi.mocked(makeCreateEmployeeService).mockReturnValue(mockCreateEmployeeService);
 
-test('should return 409 if the employee already exists', async () => {
-  const app = fastify();
+    const request = {
+      body: {
+        name: "João",
+        email: "joao@email.com",
+        password: "123456",
+      },
+    } as FastifyRequest;
 
-  app.post('/employees', createEmployee);
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-  const mockCreateEmployeeService = {
-    execute: vi.fn().mockRejectedValue(new UserAlreadyExistsError()),
-  };
+    await createEmployee(request, reply);
 
-  vi.spyOn(makeCreateEmployeeServiceModule, 'makeCreateEmployeeService').mockReturnValue(mockCreateEmployeeService);
-
-  const response = await app.inject({
-    method: 'POST',
-    url: '/employees',
-    payload: {
-      name: 'Test Employee',
-      email: 'employee@test.com',
-      password: 'password123',
-    },
+    expect(reply.status).toHaveBeenCalledWith(409);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "E-mail already exists.",
+    });
   });
 
-  expect(response.statusCode).toBe(409);
-  expect(response.json()).toEqual({ message: 'E-mail already exists.' });
+  it("deve lançar um erro inesperado se outro erro ocorrer", async () => {
+    const mockCreateEmployeeService = {
+      execute: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
+    };
+    vi.mocked(makeCreateEmployeeService).mockReturnValue(mockCreateEmployeeService);
+
+    const request = {
+      body: {
+        name: "João",
+        email: "joao@email.com",
+        password: "123456",
+      },
+    } as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await expect(createEmployee(request, reply)).rejects.toThrow("Erro inesperado");
+  });
 });

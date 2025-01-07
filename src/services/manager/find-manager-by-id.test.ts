@@ -1,34 +1,41 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { InMemoryManagersRepository } from "../../repositories/in-memory/in-memory-manager-repository";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { FindManagerByIdService } from "./find-manager-by-id";
+import { ManagerRepository } from "../../repositories/manager-repository";
 import { NoRecordsFoundError } from "../errors/no-records-found-error";
 
-let managerRepository: InMemoryManagersRepository;
-let sut: FindManagerByIdService;
+describe("FindManagerByIdService", () => {
+  let mockManagerRepository: ManagerRepository;
+  let findManagerByIdService: FindManagerByIdService;
 
-describe('Find Manager By Id Service', () => {
-    beforeEach(() => {
-        managerRepository = new InMemoryManagersRepository();
-        sut = new FindManagerByIdService(managerRepository);
-    });
+  beforeEach(() => {
+    mockManagerRepository = {
+      findById: vi.fn(),
+    } as unknown as ManagerRepository;
 
-    it('should be able to find a manager by ID', async () => {
-        const createdManager = await managerRepository.create({
-            user: {
-                connect: { id: 'user-1' }
-            }
-        });
+    findManagerByIdService = new FindManagerByIdService(mockManagerRepository);
+  });
 
-        const result = await sut.execute({ id: createdManager.id });
-        const manager = result.manager;
+  it("deve retornar o gerente ao buscar por ID existente", async () => {
+    const mockManager = {
+      id: "manager-1",
+      userId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-        expect(manager).toHaveProperty('id', createdManager.id);
-        expect(manager).toHaveProperty('userId', 'user-1');
-    });
+    vi.spyOn(mockManagerRepository, "findById").mockResolvedValue(mockManager);
 
-    it('should throw NoRecordsFoundError if manager is not found', async () => {
-        await expect(() => 
-            sut.execute({ id: 'non-existing-id' })
-        ).rejects.toThrow(NoRecordsFoundError);
-    });
+    const response = await findManagerByIdService.execute({ id: "manager-1" });
+
+    expect(mockManagerRepository.findById).toHaveBeenCalledWith("manager-1");
+    expect(response.manager).toEqual(mockManager);
+  });
+
+  it("deve lançar NoRecordsFoundError quando o gerente não for encontrado", async () => {
+    vi.spyOn(mockManagerRepository, "findById").mockResolvedValue(null);
+
+    await expect(findManagerByIdService.execute({ id: "invalid-id" })).rejects.toThrow(NoRecordsFoundError);
+
+    expect(mockManagerRepository.findById).toHaveBeenCalledWith("invalid-id");
+  });
 });

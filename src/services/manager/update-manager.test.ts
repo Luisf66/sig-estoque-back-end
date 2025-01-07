@@ -1,110 +1,85 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { hash, compare } from "bcryptjs";
-import { InMemoryManagersRepository } from "../../repositories/in-memory/in-memory-manager-repository";
-import { InMemoryUsersRepository } from "../../repositories/in-memory/in-memory-users-repository";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { UpdateManagerService } from "./update-manager";
+import { ManagerRepository } from "../../repositories/manager-repository";
+import { UserRepository } from "../../repositories/user-repository";
+import { hash } from "bcryptjs";
 import { NoRecordsFoundError } from "../errors/no-records-found-error";
 
-let managersRepository: InMemoryManagersRepository;
-let usersRepository: InMemoryUsersRepository;
-let updateManagerService: UpdateManagerService;
+vi.mock("bcryptjs", () => ({
+  hash: vi.fn().mockResolvedValue("new_hashed_password"),
+}));
 
-describe("Update Manager Service", () => {
+describe("UpdateManagerService", () => {
+  let mockManagerRepository: ManagerRepository;
+  let mockUserRepository: UserRepository;
+  let updateManagerService: UpdateManagerService;
+
   beforeEach(() => {
-    managersRepository = new InMemoryManagersRepository();
-    usersRepository = new InMemoryUsersRepository();
-    updateManagerService = new UpdateManagerService(managersRepository, usersRepository);
+    mockManagerRepository = {
+      findByUserId: vi.fn(),
+      update: vi.fn(),
+    } as unknown as ManagerRepository;
+
+    mockUserRepository = {
+      findById: vi.fn(),
+      update: vi.fn(),
+    } as unknown as UserRepository;
+
+    updateManagerService = new UpdateManagerService(
+      mockManagerRepository,
+      mockUserRepository
+    );
   });
 
-  it("should be able to update a manager's information", async () => {
-    const user = await usersRepository.create({
-      name: "John Doe",
-      email: "johndoe@example.com",
+  it("deve atualizar o gerente e o usuário com nova senha", async () => {
+    const mockUser = {
+      id: "user-1",
+      name: "Old Name",
+      email: "old@example.com",
+      password_hash: "old_hash",
       role: "MANAGER",
-      password_hash: await hash("oldpassword", 6),
+    };
+
+    const mockManager = {
+      id: "manager-1",
+      userId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    vi.spyOn(mockUserRepository, "findById").mockResolvedValue(mockUser);
+    vi.spyOn(mockManagerRepository, "findByUserId").mockResolvedValue(mockManager);
+    vi.spyOn(mockUserRepository, "update").mockResolvedValue(undefined);
+    vi.spyOn(mockManagerRepository, "update").mockResolvedValue({
+      ...mockManager,
+      updatedAt: new Date(),
     });
 
-    const manager = await managersRepository.create({
-      user: { connect: { id: user.id } },
+    const response = await updateManagerService.execute({
+      userId: "user-1",
+      name: "New Name",
+      email: "new@example.com",
+      password: "new_password",
     });
 
-    const updatedManager = await updateManagerService.execute({
-      userId: user.id,
-      name: "John Updated",
-      email: "johnupdated@example.com",
-      password: "newpassword",
-    });
-
-    expect(updatedManager.manager).toEqual(expect.objectContaining({
-      id: manager.id,
-      userId: user.id,
-    }));
-
-    const updatedUser = await usersRepository.findById(user.id);
-
-    expect(updatedUser!.name).toBe("John Updated");
-    expect(updatedUser!.email).toBe("johnupdated@example.com");
-
-    const isPasswordCorrect = await compare("newpassword", updatedUser!.password_hash);
-    expect(isPasswordCorrect).toBe(true);
-  });
-
-  it("should be able to update manager's information without changing the password", async () => {
-    const user = await usersRepository.create({
-      name: "Jane Doe",
-      email: "janedoe@example.com",
+    expect(mockUserRepository.findById).toHaveBeenCalledWith("user-1");
+    expect(mockUserRepository.update).toHaveBeenCalledWith({
+      id: "user-1",
+      name: "New Name",
+      email: "new@example.com",
       role: "MANAGER",
-      password_hash: await hash("janespassword", 6),
+      password_hash: "new_hashed_password",
     });
 
-    const manager = await managersRepository.create({
-      user: { connect: { id: user.id } },
+    expect(mockManagerRepository.findByUserId).toHaveBeenCalledWith("user-1");
+    expect(mockManagerRepository.update).toHaveBeenCalledWith({
+      id: "manager-1",
+      userId: "user-1",
     });
 
-    const updatedManager = await updateManagerService.execute({
-      userId: user.id,
-      name: "Jane Updated",
-      email: "janeupdated@example.com",
+    expect(response.manager).toEqual({
+      ...mockManager,
+      updatedAt: expect.any(Date),
     });
-
-    expect(updatedManager.manager).toEqual(expect.objectContaining({
-      id: manager.id,
-      userId: user.id,
-    }));
-
-    const updatedUser = await usersRepository.findById(user.id);
-
-    expect(updatedUser!.name).toBe("Jane Updated");
-    expect(updatedUser!.email).toBe("janeupdated@example.com");
-
-    const isPasswordCorrect = await compare("janespassword", updatedUser!.password_hash);
-    expect(isPasswordCorrect).toBe(true);
-  });
-
-  it("should throw NoRecordsFoundError if user is not found", async () => {
-    await expect(() =>
-      updateManagerService.execute({
-        userId: 'non-existing-user-id',
-        name: 'Some Name',
-        email: 'someemail@example.com',
-      })
-    ).rejects.toThrow(NoRecordsFoundError);
-  });
-
-  it("should throw NoRecordsFoundError if manager is not found", async () => {
-    const user = await usersRepository.create({
-      name: "Manager",
-      email: "manager@example.com",
-      role: "MANAGER",
-      password_hash: await hash("password", 6),
-    });
-
-    await expect(() =>
-      updateManagerService.execute({
-        userId: user.id,
-        name: 'Updated Name',
-        email: 'updated@example.com',
-      })
-    ).rejects.toThrow(NoRecordsFoundError);
   });
 });

@@ -1,62 +1,76 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { InMemoryProductsRepository } from "../../repositories/in-memory/in-memory-products-repository";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FindProductByIdService } from "./find-product-by-id";
+import { ProductRepository } from "../../repositories/product-repository";
 import { ResourceNotFoundError } from "../errors/resource-not-found-error";
 import { InactiveError } from "../errors/inactive-error";
+import { Product } from "@prisma/client";
 
-let productRepository: InMemoryProductsRepository;
-let sut: FindProductByIdService;
+describe("FindProductByIdService", () => {
+  let mockProductRepository: ProductRepository;
+  let findProductByIdService: FindProductByIdService;
 
-describe('Fetch Product By Id Service', () => {
-    beforeEach(() => {
-        productRepository = new InMemoryProductsRepository();
-        sut = new FindProductByIdService(productRepository);
-    });
+  beforeEach(() => {
+    mockProductRepository = {
+      findById: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    } as unknown as ProductRepository;
 
-    it('should be able to fetch product by id', async () => {
-        const createdProduct = await productRepository.create({
-            name: 'Product 1',
-            description: 'Product 1 description',
-            price: 100,
-            quantity_in_stock: 10,
-            batch: 'ABC123',
-            supplierId: 'supplier-1', // Certifique-se de fornecer um supplierId
-            is_active: true
-        });
+    findProductByIdService = new FindProductByIdService(mockProductRepository);
+  });
 
-        const { product } = await sut.execute({
-            productId: createdProduct.id
-        });
+  it("deve retornar o produto quando o ID for válido e o produto estiver ativo", async () => {
+    const mockProduct: Product = {
+      id: "product-1",
+      name: "Produto A",
+      description: "Descrição do produto A",
+      price: 100,
+      quantity_in_stock: 50,
+      batch: "Lote123",
+      is_active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-        expect(product.id).toEqual(createdProduct.id);
-    });
+    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
 
-    it('should not be able to fetch product with wrong id', async () => {
-        await expect(() =>
-            sut.execute({
-                productId: 'non-existing-id'
-            })).rejects.toBeInstanceOf(ResourceNotFoundError);
-    });
+    const response = await findProductByIdService.execute({ productId: "product-1" });
 
-    it('should not be able to fetch inactive product', async () => {
-        // Cria um produto e marca como inativo
-        const createdProduct = await productRepository.create({
-            name: 'Inactive Product',
-            description: 'This product is inactive',
-            price: 650,
-            quantity_in_stock: 8,
-            batch: 'XYZ456A',
-            supplierId: 'supplier-2', // Certifique-se de fornecer um supplierId
-            is_active: true // Define o produto como ativo inicialmente
-        });
+    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
+    expect(response.product).toEqual(mockProduct);
+  });
 
-        // Marca o produto como inativo
-        await productRepository.inactivate(createdProduct.id);
+  it("deve lançar um erro quando o produto não for encontrado", async () => {
+    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(null);
 
-        // Tenta buscar o produto inativo
-        await expect(() =>
-            sut.execute({
-                productId: createdProduct.id
-            })).rejects.toBeInstanceOf(InactiveError);
-    });
+    await expect(
+      findProductByIdService.execute({ productId: "product-1" })
+    ).rejects.toThrow(ResourceNotFoundError);
+
+    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
+  });
+
+  it("deve lançar um erro quando o produto estiver inativo", async () => {
+    const mockProduct: Product = {
+      id: "product-1",
+      name: "Produto A",
+      description: "Descrição do produto A",
+      price: 100,
+      quantity_in_stock: 50,
+      batch: "Lote123",
+      is_active: false, // Produto inativo
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
+
+    await expect(
+      findProductByIdService.execute({ productId: "product-1" })
+    ).rejects.toThrow(InactiveError);
+
+    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
+  });
 });

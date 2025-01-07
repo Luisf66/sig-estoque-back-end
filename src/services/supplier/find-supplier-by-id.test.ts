@@ -1,44 +1,49 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { InMemorySuppliersRepository } from "../../repositories/in-memory/in-memory-supplier-repository";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FindSupplierByIdService } from "./find-supplier-by-id";
+import { SupplierRepository } from "../../repositories/supplier-repository";
 import { NoRecordsFoundError } from "../errors/no-records-found-error";
+import { Supplier } from "@prisma/client";
 
-let supplierRepository: InMemorySuppliersRepository;
-let sut: FindSupplierByIdService;
+describe("FindSupplierByIdService", () => {
+  let supplierRepository: SupplierRepository;
+  let findSupplierByIdService: FindSupplierByIdService;
 
-describe('Find Supplier By Id Service', () => {
-    beforeEach(() => {
-        supplierRepository = new InMemorySuppliersRepository();
-        sut = new FindSupplierByIdService(supplierRepository);
-    });
+  beforeEach(() => {
+    supplierRepository = {
+      findById: vi.fn(),
+    } as unknown as SupplierRepository;
 
-    it('should be able to find a supplier by ID', async () => {
-        const createdSupplier = await supplierRepository.create({
-            social_name: 'Supplier 1',
-            company_name: 'Company 1',
-            phone_number: '123456789',
-            cnpj: '12345678000100'
-        });
+    findSupplierByIdService = new FindSupplierByIdService(supplierRepository);
+  });
 
-        const result = await sut.execute({ supplierId: createdSupplier.id });
-        const supplier = result.supplier;
+  it("deve retornar um fornecedor quando encontrado pelo ID", async () => {
+    const mockSupplier: Supplier = {
+      id: "supplier-1",
+      social_name: "Fornecedor Social",
+      company_name: "Empresa X",
+      phone_number: "123456789",
+      cnpj: "12345678000100",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-        expect(supplier).toHaveProperty('id', createdSupplier.id);
-        expect(supplier).toHaveProperty('social_name', 'Supplier 1');
-        expect(supplier).toHaveProperty('company_name', 'Company 1');
-        expect(supplier).toHaveProperty('phone_number', '123456789');
-        expect(supplier).toHaveProperty('cnpj', '12345678000100');
+    vi.spyOn(supplierRepository, "findById").mockResolvedValue(mockSupplier);
 
-        expect(supplier.id).toBe(createdSupplier.id);
-        expect(supplier.social_name).toBe(createdSupplier.social_name);
-        expect(supplier.company_name).toBe(createdSupplier.company_name);
-        expect(supplier.phone_number).toBe(createdSupplier.phone_number);
-        expect(supplier.cnpj).toBe(createdSupplier.cnpj);
-    });
+    const response = await findSupplierByIdService.execute({ supplierId: "supplier-1" });
 
-    it('should throw NoRecordsFoundError if supplier is not found', async () => {
-        await expect(sut.execute({ supplierId: 'non-existing-id' }))
-            .rejects
-            .toThrow(NoRecordsFoundError);
-    });
+    expect(supplierRepository.findById).toHaveBeenCalledTimes(1);
+    expect(supplierRepository.findById).toHaveBeenCalledWith("supplier-1");
+    expect(response.supplier).toEqual(mockSupplier);
+  });
+
+  it("deve lançar um erro se o fornecedor não for encontrado", async () => {
+    vi.spyOn(supplierRepository, "findById").mockResolvedValue(null);
+
+    await expect(
+      findSupplierByIdService.execute({ supplierId: "supplier-2" })
+    ).rejects.toBeInstanceOf(NoRecordsFoundError);
+
+    expect(supplierRepository.findById).toHaveBeenCalledTimes(1);
+    expect(supplierRepository.findById).toHaveBeenCalledWith("supplier-2");
+  });
 });

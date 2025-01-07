@@ -1,84 +1,103 @@
-import { beforeEach, describe, it, expect, vi } from 'vitest';
-import { ReduceProductStockService } from './reduce-product-stock';
-import { InMemoryProductsRepository } from '../../repositories/in-memory/in-memory-products-repository';
-import { ResourceNotFoundError } from '../errors/resource-not-found-error';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ReduceProductStockService } from "./reduce-product-stock";
+import { ProductRepository } from "../../repositories/product-repository";
+import { ResourceNotFoundError } from "../errors/resource-not-found-error";
 
-let productRepository: InMemoryProductsRepository;
-let reduceStockService: ReduceProductStockService;
+describe("ReduceProductStockService", () => {
+  let mockProductRepository: ProductRepository;
+  let reduceProductStockService: ReduceProductStockService;
 
-describe('Reduce Product Stock Service', () => {
-    beforeEach(() => {
-        productRepository = new InMemoryProductsRepository();
-        reduceStockService = new ReduceProductStockService(productRepository);
-    });
+  beforeEach(() => {
+    mockProductRepository = {
+      findById: vi.fn(),
+      reduceStock: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      inactivate: vi.fn(),
+      patch: vi.fn(),
+    } as unknown as ProductRepository;
 
-    it('should reduce stock successfully when there is sufficient stock', async () => {
-        // Crie um produto com estoque suficiente
-        const createdProduct = await productRepository.create({
-            name: 'Product with Stock',
-            description: 'Product with enough stock',
-            price: 100,
-            quantity_in_stock: 20,
-            batch: 'BATCH001',
-            supplierId: 'supplier-123',
-            is_active: true,
-        });
+    reduceProductStockService = new ReduceProductStockService(mockProductRepository);
+  });
 
-        await reduceStockService.execute({
-            productId: createdProduct.id,
-            quantity: 10,
-        });
+  it("deve reduzir o estoque de um produto com sucesso", async () => {
+    const mockProduct = {
+      id: "product-1",
+      name: "Produto A",
+      description: "Descrição do produto A",
+      price: 100,
+      quantity_in_stock: 50,
+      batch: "Lote123",
+      is_active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-        const updatedProduct = await productRepository.findById(createdProduct.id);
-        expect(updatedProduct?.quantity_in_stock).toBe(10); // 20 - 10 = 10
-    });
+    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
+    vi.spyOn(mockProductRepository, "reduceStock").mockResolvedValue();
 
-    it('should throw ResourceNotFoundError if the product does not exist', async () => {
-        await expect(
-            reduceStockService.execute({
-                productId: 'non-existing-id',
-                quantity: 5,
-            })
-        ).rejects.toBeInstanceOf(ResourceNotFoundError);
-    });
+    await reduceProductStockService.execute({ productId: "product-1", quantity: 10 });
 
-    it('should throw an error if product stock information is missing', async () => {
-        // Crie um produto com a informação de estoque ausente
-        const createdProduct = await productRepository.create({
-            name: 'Product without Stock Info',
-            description: 'Product with missing stock info',
-            price: 100,
-            quantity_in_stock: null, // Estoque ausente
-            batch: 'BATCH002',
-            supplierId: 'supplier-456',
-            is_active: true,
-        });
+    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
+    expect(mockProductRepository.reduceStock).toHaveBeenCalledWith("product-1", 10);
+  });
 
-        await expect(
-            reduceStockService.execute({
-                productId: createdProduct.id,
-                quantity: 5,
-            })
-        ).rejects.toThrow('Product stock information is missing');
-    });
+  it("deve lançar um erro se o produto não for encontrado", async () => {
+    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(null);
 
-    it('should throw an error if there is insufficient stock', async () => {
-        // Crie um produto com estoque insuficiente
-        const createdProduct = await productRepository.create({
-            name: 'Product with Insufficient Stock',
-            description: 'Product with not enough stock',
-            price: 100,
-            quantity_in_stock: 5,
-            batch: 'BATCH003',
-            supplierId: 'supplier-789',
-            is_active: true,
-        });
+    await expect(
+      reduceProductStockService.execute({ productId: "product-1", quantity: 10 })
+    ).rejects.toThrowError(ResourceNotFoundError);
 
-        await expect(
-            reduceStockService.execute({
-                productId: createdProduct.id,
-                quantity: 10,
-            })
-        ).rejects.toThrow('Insufficient stock');
-    });
+    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
+    expect(mockProductRepository.reduceStock).not.toHaveBeenCalled();
+  });
+
+  it("deve lançar um erro se o estoque do produto não estiver disponível", async () => {
+    const mockProduct = {
+      id: "product-1",
+      name: "Produto A",
+      description: "Descrição do produto A",
+      price: 100,
+      quantity_in_stock: null,
+      batch: "Lote123",
+      is_active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
+
+    await expect(
+      reduceProductStockService.execute({ productId: "product-1", quantity: 10 })
+    ).rejects.toThrowError("Product stock information is missing");
+
+    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
+    expect(mockProductRepository.reduceStock).not.toHaveBeenCalled();
+  });
+
+  it("deve lançar um erro se o estoque for insuficiente", async () => {
+    const mockProduct = {
+      id: "product-1",
+      name: "Produto A",
+      description: "Descrição do produto A",
+      price: 100,
+      quantity_in_stock: 5,
+      batch: "Lote123",
+      is_active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
+
+    await expect(
+      reduceProductStockService.execute({ productId: "product-1", quantity: 10 })
+    ).rejects.toThrowError("Insufficient stock");
+
+    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
+    expect(mockProductRepository.reduceStock).not.toHaveBeenCalled();
+  });
 });

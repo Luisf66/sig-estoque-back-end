@@ -1,67 +1,90 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { fetchAllProduct } from './fetch-all';
-import * as makeFetchAllProductServiceModule from '../../../services/factories/product/make-fetch-all-product-service';
+import { describe, it, expect, vi } from "vitest";
+import { fetchAllProduct } from "./fetch-all";
+import { FastifyReply, FastifyRequest } from "fastify";
+import { makeFetchAllProductService } from "../../../services/factories/product/make-fetch-all-product-service";
 
-test('should fetch all products successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/product/make-fetch-all-product-service");
 
-  app.get('/products', fetchAllProduct);
+describe("fetchAllProduct Controller", () => {
+  it("deve retornar todos os produtos com sucesso", async () => {
+    const mockFetchAllProductService = {
+      execute: vi.fn().mockResolvedValue({
+        product: [
+          {
+            id: "1",
+            name: "Produto A",
+            description: "Descrição do Produto A",
+            price: 100.0,
+            quantity_in_stock: 10,
+            batch: "BATCH01",
+          },
+          {
+            id: "2",
+            name: "Produto B",
+            description: "Descrição do Produto B",
+            price: 200.0,
+            quantity_in_stock: 20,
+            batch: "BATCH02",
+          },
+        ],
+      }),
+    };
 
-  const mockFetchAllProductService = {
-    execute: vi.fn().mockResolvedValue({
+    vi.mocked(makeFetchAllProductService).mockReturnValue(mockFetchAllProductService);
+
+    const request = {} as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await fetchAllProduct(request, reply);
+
+    expect(mockFetchAllProductService.execute).toHaveBeenCalled();
+    expect(reply.code).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
       product: [
-        { id: '1', name: 'Product One', description: 'Description for product one', price: 10.99, supplierId: 'supplier1', quantity_in_stock: 50, batch: 'BATCH01' },
-        { id: '2', name: 'Product Two', description: 'Description for product two', price: 20.99, supplierId: 'supplier2', quantity_in_stock: 30, batch: 'BATCH02' },
+        {
+          id: "1",
+          name: "Produto A",
+          description: "Descrição do Produto A",
+          price: 100.0,
+          quantity_in_stock: 10,
+          batch: "BATCH01",
+        },
+        {
+          id: "2",
+          name: "Produto B",
+          description: "Descrição do Produto B",
+          price: 200.0,
+          quantity_in_stock: 20,
+          batch: "BATCH02",
+        },
       ],
-    }),
-  };
-
-  vi.spyOn(makeFetchAllProductServiceModule, 'makeFetchAllProductService').mockReturnValue(mockFetchAllProductService);
-
-  const response = await app.inject({
-    method: 'GET',
-    url: '/products',
+    });
   });
 
-  expect(response.statusCode).toBe(200);
-  expect(response.json()).toEqual({
-    product: [
-      { id: '1', name: 'Product One', description: 'Description for product one', price: 10.99, supplierId: 'supplier1', quantity_in_stock: 50, batch: 'BATCH01' },
-      { id: '2', name: 'Product Two', description: 'Description for product two', price: 20.99, supplierId: 'supplier2', quantity_in_stock: 30, batch: 'BATCH02' },
-    ],
+  it("deve retornar erro interno do servidor em caso de falha no serviço", async () => {
+    const mockFetchAllProductService = {
+      execute: vi.fn().mockRejectedValue(new Error("Erro no serviço")),
+    };
+
+    vi.mocked(makeFetchAllProductService).mockReturnValue(mockFetchAllProductService);
+
+    const request = {} as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await expect(fetchAllProduct(request, reply)).rejects.toThrowError("Erro no serviço");
+
+    expect(mockFetchAllProductService.execute).toHaveBeenCalled();
+    expect(reply.code).not.toHaveBeenCalledWith(200);
+    expect(reply.send).not.toHaveBeenCalledWith({
+      product: expect.anything(),
+    });
   });
-});
-
-test('should return 500 if there is an internal server error', async () => {
-  const app = fastify();
-
-  app.get('/products', fetchAllProduct);
-
-  const mockFetchAllProductService = {
-    execute: vi.fn().mockRejectedValue(new Error('Simulated error for testing')),
-  };
-
-  vi.spyOn(makeFetchAllProductServiceModule, 'makeFetchAllProductService').mockReturnValue(mockFetchAllProductService);
-
-  // Redirecionar console.error para ignorar erros
-  const originalConsoleError = console.error;
-  console.error = () => {};
-
-  try {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/products',
-    });
-
-    expect(response.statusCode).toBe(500);
-    expect(response.json()).toEqual({
-      error: 'Internal Server Error',
-      message: 'Simulated error for testing',
-      statusCode: 500,
-    });
-  } finally {
-    // Restaurar console.error
-    console.error = originalConsoleError;
-  }
 });

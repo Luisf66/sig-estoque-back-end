@@ -1,62 +1,71 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FetchAllSaleByUserIdService } from "./fetch-all-sale-by-user-id";
-import { InMemorySaleRepository } from "../../repositories/in-memory/in-memory-sale-repository";
-import { InMemoryUsersRepository } from "../../repositories/in-memory/in-memory-users-repository";
-import { Sale } from "@prisma/client";
+import { SaleRepository } from "../../repositories/sale-repository";
+import { UserRepository } from "../../repositories/user-repository";
 import { ResourceNotFoundError } from "../errors/resource-not-found-error";
 
-let saleRepository: InMemorySaleRepository;
-let userRepository: InMemoryUsersRepository;
-let fetchAllSaleByUserIdService: FetchAllSaleByUserIdService;
-
 describe("FetchAllSaleByUserIdService", () => {
-    beforeEach(() => {
-        saleRepository = new InMemorySaleRepository();
-        userRepository = new InMemoryUsersRepository();
-        fetchAllSaleByUserIdService = new FetchAllSaleByUserIdService(saleRepository, userRepository);
-    });
+  let mockSaleRepository: SaleRepository;
+  let mockUserRepository: UserRepository;
+  let fetchAllSaleByUserIdService: FetchAllSaleByUserIdService;
 
-    it("deve buscar todas as vendas de um usuário existente", async () => {
-        // Criando um usuário para o teste
-        const user = await userRepository.create({
-            name: "Test User",
-            email: "test@example.com",
-            password_hash: "hashed_password_123",
-            role: "EMPLOYEE",
-        });
+  beforeEach(() => {
+    mockSaleRepository = {
+      findManyByUserId: vi.fn(),
+    } as unknown as SaleRepository;
 
-        // Criando vendas para o usuário
-        const sale1 = await saleRepository.create({
-            nf_number: "12345",
-            user: {
-                connect: {
-                    id: user.id,
-                },
-            },
-        });
+    mockUserRepository = {
+      findById: vi.fn(),
+    } as unknown as UserRepository;
 
-        const sale2 = await saleRepository.create({
-            nf_number: "67890",
-            user: {
-                connect: {
-                    id: user.id,
-                },
-            },
-        });
+    fetchAllSaleByUserIdService = new FetchAllSaleByUserIdService(
+      mockSaleRepository,
+      mockUserRepository
+    );
+  });
 
+  it("deve retornar todas as vendas de um usuário válido", async () => {
+    const userId = "user-1";
+    const mockUser = { id: userId, name: "John Doe", email: "john@example.com" };
+    const mockSales = [
+      { id: "sale-1", nf_number: "123", userId: "user-1", subTotal: 200 },
+      { id: "sale-2", nf_number: "124", userId: "user-1", subTotal: 300 },
+    ];
 
-        // Executando o serviço
-        const response = await fetchAllSaleByUserIdService.execute({ userId: user.id });
+    vi.spyOn(mockUserRepository, "findById").mockResolvedValue(mockUser);
+    vi.spyOn(mockSaleRepository, "findManyByUserId").mockResolvedValue(mockSales);
 
-        // Verificando se as vendas foram retornadas corretamente
-        expect(response.sales).toHaveLength(2);
-        expect(response.sales).toEqual([sale1, sale2]);
-    });
+    const result = await fetchAllSaleByUserIdService.execute({ userId });
 
-    it("deve lançar um erro se o usuário não for encontrado", async () => {
-        // Executando o serviço com um ID de usuário não existente
-        await expect(fetchAllSaleByUserIdService.execute({ userId: "non-existing-user-id" }))
-            .rejects
-            .toBeInstanceOf(ResourceNotFoundError);
-    });
+    expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
+    expect(mockSaleRepository.findManyByUserId).toHaveBeenCalledWith(userId);
+    expect(result).toEqual({ sales: mockSales });
+  });
+
+  it("deve lançar erro se o usuário não for encontrado", async () => {
+    const userId = "user-1";
+
+    vi.spyOn(mockUserRepository, "findById").mockResolvedValue(null);
+
+    await expect(
+      fetchAllSaleByUserIdService.execute({ userId })
+    ).rejects.toThrowError(ResourceNotFoundError);
+
+    expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
+    expect(mockSaleRepository.findManyByUserId).not.toHaveBeenCalled();
+  });
+
+  it("deve retornar uma lista vazia se o usuário não tiver vendas", async () => {
+    const userId = "user-1";
+    const mockUser = { id: userId, name: "John Doe", email: "john@example.com" };
+
+    vi.spyOn(mockUserRepository, "findById").mockResolvedValue(mockUser);
+    vi.spyOn(mockSaleRepository, "findManyByUserId").mockResolvedValue([]);
+
+    const result = await fetchAllSaleByUserIdService.execute({ userId });
+
+    expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
+    expect(mockSaleRepository.findManyByUserId).toHaveBeenCalledWith(userId);
+    expect(result).toEqual({ sales: [] });
+  });
 });

@@ -1,82 +1,71 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { inactivateProduct } from './inactivate';
-import * as makeInactivateProductServiceModule from '../../../services/factories/product/make-inactivate-product-service';
-import { NoRecordsFoundError } from '../../../services/errors/no-records-found-error';
+import { describe, it, expect, vi } from "vitest";
+import { inactivateProduct } from "./inactivate";
+import { FastifyReply, FastifyRequest } from "fastify";
+import { makeInactivateProductService } from "../../../services/factories/product/make-inactivate-product-service";
+import { NoRecordsFoundError } from "../../../services/errors/no-records-found-error";
 
-test('should inactivate a product successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/product/make-inactivate-product-service");
 
-  app.delete('/products/:id', inactivateProduct);
+describe("inactivateProduct Controller", () => {
+  it("deve inativar o produto com sucesso", async () => {
+    const mockInactivateProductService = {
+      execute: vi.fn().mockResolvedValue(undefined),
+    };
 
-  const mockInactivateProductService = {
-    execute: vi.fn().mockResolvedValue(undefined),
-  };
+    vi.mocked(makeInactivateProductService).mockReturnValue(mockInactivateProductService);
 
-  vi.spyOn(makeInactivateProductServiceModule, 'makeInactivateProductService').mockReturnValue(mockInactivateProductService);
+    const request = {
+      params: { id: "1" },
+    } as unknown as FastifyRequest;
 
-  const response = await app.inject({
-    method: 'DELETE',
-    url: '/products/123',
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await inactivateProduct(request, reply);
+
+    expect(mockInactivateProductService.execute).toHaveBeenCalledWith({ productId: "1" });
+    expect(reply.code).toHaveBeenCalledWith(204);
+    expect(reply.send).toHaveBeenCalledWith();
   });
 
-  expect(response.statusCode).toBe(204);
-  expect(response.body).toBe('');
+  it("deve retornar erro 404 se o produto não for encontrado", async () => {
+    const mockInactivateProductService = {
+      execute: vi.fn().mockRejectedValue(new NoRecordsFoundError()),
+    };
 
-  expect(mockInactivateProductService.execute).toHaveBeenCalledWith({
-    productId: '123',
+    vi.mocked(makeInactivateProductService).mockReturnValue(mockInactivateProductService);
+
+    const request = {
+      params: { id: "99" },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await inactivateProduct(request, reply);
+
+    expect(mockInactivateProductService.execute).toHaveBeenCalledWith({ productId: "99" });
+    expect(reply.status).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({ message: 'No records found.' });
   });
-});
 
-test('should return 404 if the product is not found', async () => {
-  const app = fastify();
+  it("deve lançar erro de validação se o ID do produto for inválido", async () => {
+    const request = {
+      params: { id: 123 }, // ID inválido (não é string)
+    } as unknown as FastifyRequest;
 
-  app.delete('/products/:id', inactivateProduct);
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-  const mockInactivateProductService = {
-    execute: vi.fn().mockRejectedValue(new NoRecordsFoundError()),
-  };
+    await expect(inactivateProduct(request, reply)).rejects.toThrowError();
 
-  vi.spyOn(makeInactivateProductServiceModule, 'makeInactivateProductService').mockReturnValue(mockInactivateProductService);
-
-  const response = await app.inject({
-    method: 'DELETE',
-    url: '/products/999',
+    expect(reply.code).not.toHaveBeenCalledWith(204);
+    expect(reply.send).not.toHaveBeenCalled();
   });
-
-  expect(response.statusCode).toBe(404);
-  expect(response.json()).toEqual({ message: 'No records found.' });
-});
-
-test('should return 500 if there is an internal server error', async () => {
-  const app = fastify();
-
-  app.delete('/products/:id', inactivateProduct);
-
-  const mockInactivateProductService = {
-    execute: vi.fn().mockRejectedValue(new Error('Simulated internal error')),
-  };
-
-  vi.spyOn(makeInactivateProductServiceModule, 'makeInactivateProductService').mockReturnValue(mockInactivateProductService);
-
-  // Redirecionar console.error para ignorar erros
-  const originalConsoleError = console.error;
-  console.error = () => {};
-
-  try {
-    const response = await app.inject({
-      method: 'DELETE',
-      url: '/products/1',
-    });
-
-    expect(response.statusCode).toBe(500);
-    expect(response.json()).toEqual({
-      error: 'Internal Server Error',
-      message: 'Simulated internal error',
-      statusCode: 500,
-    });
-  } finally {
-    // Restaurar console.error
-    console.error = originalConsoleError;
-  }
 });

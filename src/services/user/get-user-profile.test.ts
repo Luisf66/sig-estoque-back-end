@@ -1,37 +1,46 @@
-import { beforeEach, describe, expect, it } from "vitest"
-import { hash } from "bcryptjs"
-import { InMemoryUsersRepository } from "../../repositories/in-memory/in-memory-users-repository"
-import { GetUserProfileService } from "./get-user-profile"
-import { ResourceNotFoundError } from "../errors/resource-not-found-error"
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { GetUserProfileService } from "./get-user-profile";
+import { UserRepository } from "../../repositories/user-repository";
+import { User } from "@prisma/client";
+import { ResourceNotFoundError } from "../errors/resource-not-found-error";
 
-let usersRepository : InMemoryUsersRepository
-let sut: GetUserProfileService
+describe("GetUserProfileService", () => {
+  let userRepository: UserRepository;
+  let getUserProfileService: GetUserProfileService;
 
-describe('Get User Profile Service', () => {
-    beforeEach(() => {
-        usersRepository = new InMemoryUsersRepository
-        sut = new GetUserProfileService(usersRepository)
-    })
+  beforeEach(() => {
+    userRepository = {
+      findById: vi.fn(),
+    } as unknown as UserRepository;
 
-    it('should be able to get user profile', async () => {
-        const createdUser = await usersRepository.create({
-            name: 'John Doe',
-            role: 'MANAGER',
-            email: 'johndoe@gmail.com',
-            password_hash: await hash('123456', 6)
-        })
+    getUserProfileService = new GetUserProfileService(userRepository);
+  });
 
-        const { user } = await sut.execute({
-            userId: createdUser.id
-        })
+  it("deve retornar o perfil do usuário se ele for encontrado", async () => {
+    const mockUser: User = {
+      id: "user-1",
+      name: "Maria Silva",
+      email: "maria@example.com",
+      password: "hashedpassword",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-        expect(user.id).toEqual(expect.any(String))
-    })
+    vi.spyOn(userRepository, "findById").mockResolvedValue(mockUser);
 
-    it('should not be able to get user profile with wrong id', async () => {
-      await expect(() => 
-          sut.execute({
-              userId: 'non-existing-id'
-          })).rejects.toBeInstanceOf(ResourceNotFoundError)
-  })
-})
+    const response = await getUserProfileService.execute({ userId: "user-1" });
+
+    expect(userRepository.findById).toHaveBeenCalledWith("user-1");
+    expect(userRepository.findById).toHaveBeenCalledTimes(1);
+    expect(response.user).toEqual(mockUser);
+  });
+
+  it("deve lançar um erro se o perfil do usuário não for encontrado", async () => {
+    vi.spyOn(userRepository, "findById").mockResolvedValue(null);
+
+    await expect(getUserProfileService.execute({ userId: "user-2" })).rejects.toThrow(ResourceNotFoundError);
+
+    expect(userRepository.findById).toHaveBeenCalledWith("user-2");
+    expect(userRepository.findById).toHaveBeenCalledTimes(1);
+  });
+});

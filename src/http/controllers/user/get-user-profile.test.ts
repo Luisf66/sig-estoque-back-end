@@ -1,102 +1,102 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { profile } from "./get-user-profile";
-import { FastifyReply, FastifyRequest } from "fastify";
 import { makeGetUserProfileService } from "../../../services/factories/user/make-get-user-profile-service";
 import { makeFindManagerByUserIdService } from "../../../services/factories/manager/make-find-manager-by-user-id-service";
 import { ResourceNotFoundError } from "../../../services/errors/resource-not-found-error";
+import { FastifyRequest, FastifyReply } from "fastify";
 
 vi.mock("../../../services/factories/user/make-get-user-profile-service");
 vi.mock("../../../services/factories/manager/make-find-manager-by-user-id-service");
 
 describe("profile Controller", () => {
-  const mockRequest = (user: { sub: string }) => ({
-    user,
-    jwtVerify: vi.fn().mockResolvedValue(null)
-  }) as FastifyRequest;
+  let mockGetUserProfileService: { execute: vi.Mock };
+  let mockFindManagerByUserIdService: { execute: vi.Mock };
 
-  const mockReply = {
-    code: vi.fn().mockReturnThis(),
-    send: vi.fn().mockReturnThis(),
-    status: vi.fn().mockReturnThis()
-  } as unknown as FastifyReply;
-
-  it("should return user profile and manager if the user is a manager", async () => {
-    const mockGetUserProfileService = {
-      execute: vi.fn().mockResolvedValue({
-        user: { id: "user1", role: "MANAGER" }
-      })
+  beforeEach(() => {
+    mockGetUserProfileService = {
+      execute: vi.fn(),
     };
 
-    const mockFindManagerByUserIdService = {
-      execute: vi.fn().mockResolvedValue({
-        id: "user1",
-        name: "Manager One"
-      })
+    mockFindManagerByUserIdService = {
+      execute: vi.fn(),
     };
 
-    (makeGetUserProfileService as any).mockReturnValue(mockGetUserProfileService);
-    (makeFindManagerByUserIdService as any).mockReturnValue(mockFindManagerByUserIdService);
+    vi.mocked(makeGetUserProfileService).mockReturnValue(mockGetUserProfileService);
+    vi.mocked(makeFindManagerByUserIdService).mockReturnValue(mockFindManagerByUserIdService);
+  });
 
-    const request = mockRequest({ sub: "user1" });
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
-    await profile(request, mockReply);
-
-    expect(mockGetUserProfileService.execute).toHaveBeenCalledWith({
-      userId: "user1"
+  it("deve retornar o perfil do usuário e informações do gerente quando o usuário for um gerente", async () => {
+    mockGetUserProfileService.execute.mockResolvedValueOnce({
+      user: { id: "user-1", role: "MANAGER" },
     });
 
-    expect(mockFindManagerByUserIdService.execute).toHaveBeenCalledWith({
-      userId: "user1"
+    mockFindManagerByUserIdService.execute.mockResolvedValueOnce({
+      id: "manager-1",
+      name: "John Doe",
     });
 
-    expect(mockReply.status).toHaveBeenCalledWith(200);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      user: { id: "user1", role: "MANAGER" },
-      switchedUser: { id: "user1", name: "Manager One" }
+    const request = {
+      jwtVerify: vi.fn().mockResolvedValueOnce(undefined),
+      user: { sub: "user-1" },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await profile(request, reply);
+
+    expect(mockGetUserProfileService.execute).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(mockFindManagerByUserIdService.execute).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(reply.status).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
+      user: { id: "user-1", role: "MANAGER" },
+      switchedUser: { id: "manager-1", name: "John Doe" },
     });
   });
 
-  it("should return 404 if the role is not found", async () => {
-    const mockGetUserProfileService = {
-      execute: vi.fn().mockResolvedValue({
-        user: { id: "user1", role: "UNKNOWN_ROLE" }
-      })
-    };
+  it("deve retornar erro 404 quando o usuário não for encontrado", async () => {
+    mockGetUserProfileService.execute.mockRejectedValueOnce(new ResourceNotFoundError());
 
-    (makeGetUserProfileService as any).mockReturnValue(mockGetUserProfileService);
+    const request = {
+      jwtVerify: vi.fn().mockResolvedValueOnce(undefined),
+      user: { sub: "non-existent-user" },
+    } as unknown as FastifyRequest;
 
-    const request = mockRequest({ sub: "user1" });
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-    await profile(request, mockReply);
+    await profile(request, reply);
 
-    expect(mockGetUserProfileService.execute).toHaveBeenCalledWith({
-      userId: "user1"
-    });
-
-    expect(mockReply.status).toHaveBeenCalledWith(404);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      message: "Resource not found"
-    });
+    expect(mockGetUserProfileService.execute).toHaveBeenCalledWith({ userId: "non-existent-user" });
+    expect(reply.status).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({ message: "Resource not found" });
   });
 
-  it("should return 500 if an error occurs", async () => {
-    const mockGetUserProfileService = {
-      execute: vi.fn().mockRejectedValue(new Error("Unknown error"))
-    };
+  it("deve retornar erro 500 para erros inesperados", async () => {
+    mockGetUserProfileService.execute.mockRejectedValueOnce(new Error("Unexpected error"));
 
-    (makeGetUserProfileService as any).mockReturnValue(mockGetUserProfileService);
+    const request = {
+      jwtVerify: vi.fn().mockResolvedValueOnce(undefined),
+      user: { sub: "user-1" },
+    } as unknown as FastifyRequest;
 
-    const request = mockRequest({ sub: "user1" });
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-    await profile(request, mockReply);
+    await profile(request, reply);
 
-    expect(mockGetUserProfileService.execute).toHaveBeenCalledWith({
-      userId: "user1"
-    });
-
-    expect(mockReply.status).toHaveBeenCalledWith(500);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      message: "Internal Server Error"
-    });
+    expect(mockGetUserProfileService.execute).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(reply.status).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({ message: "Internal Server Error" });
   });
 });

@@ -1,32 +1,43 @@
-import { beforeEach, describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CreateSupplierService } from "./create-supplier";
-import { InMemorySuppliersRepository } from "../../repositories/in-memory/in-memory-supplier-repository";
+import { SupplierRepository } from "../../repositories/supplier-repository";
 
-let supplierRepository: InMemorySuppliersRepository;
-let sut: CreateSupplierService;
+describe("CreateSupplierService", () => {
+  let mockSupplierRepository: SupplierRepository;
+  let createSupplierService: CreateSupplierService;
 
-describe('Create Supplier Service', () => {
-    beforeEach(() => {
-        supplierRepository = new InMemorySuppliersRepository();
-        sut = new CreateSupplierService(supplierRepository);
+  beforeEach(() => {
+    mockSupplierRepository = {
+      create: vi.fn(),
+    } as unknown as SupplierRepository;
+
+    createSupplierService = new CreateSupplierService(mockSupplierRepository);
+  });
+
+  it("deve criar um novo fornecedor com os dados fornecidos", async () => {
+    const mockSupplier = {
+      id: "supplier-1",
+      social_name: "Fornecedor Social",
+      company_name: "Fornecedor Ltda",
+      phone_number: "123456789",
+      cnpj: "12345678000190",
+    };
+
+    vi.spyOn(mockSupplierRepository, "create").mockResolvedValue(mockSupplier);
+
+    const result = await createSupplierService.handle({
+      social_name: "Fornecedor Social",
+      company_name: "Fornecedor Ltda",
+      phone_number: "123456789",
+      cnpj: "12345678000190",
     });
 
-    it('should be able to create a new supplier', async () => {
-        await supplierRepository.create({
-            social_name: 'Supplier 1',
-            company_name: 'Company 1',
-            phone_number: '9876543210',
-            cnpj: '12345678000100'
-        });
-    
-        const { supplier } = await sut.handle({
-            social_name: 'Supplier 2',
-            company_name: 'Company 2',
-            phone_number: '9876543210',
-            cnpj: '98765432000100'
-        });
-    
-        expect(supplier.id).toEqual(expect.any(String));
+    expect(mockSupplierRepository.create).toHaveBeenCalledWith({
+      social_name: "Fornecedor Social",
+      company_name: "Fornecedor Ltda",
+      phone_number: "123456789",
+      cnpj: "12345678000190",
     });
-    
+    expect(result).toEqual({ supplier: mockSupplier });
+  });
 });

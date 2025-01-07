@@ -1,30 +1,51 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { InMemoryEmployeesRepository } from "../../repositories/in-memory/in-memory-employee-repository";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { FetchAllEmployeeService } from "./fetch-all-employee";
+import { EmployeeRepository } from "../../repositories/employee-repository";
 
-let employeeRepository: InMemoryEmployeesRepository;
-let sut: FetchAllEmployeeService;
+describe("FetchAllEmployeeService", () => {
+  let fetchAllEmployeeService: FetchAllEmployeeService;
+  let mockEmployeeRepository: { findMany: vi.Mock };
 
-describe('Fetch All Employee Service', () => {
-    beforeEach(() => {
-        employeeRepository = new InMemoryEmployeesRepository();
-        sut = new FetchAllEmployeeService(employeeRepository);
-    });
+  beforeEach(() => {
+    mockEmployeeRepository = {
+      findMany: vi.fn(),
+    };
 
-    it('should be able to fetch all employees', async () => {
-        await employeeRepository.create({
-            user: { connect: { id: 'user-1-id' } }
-        });
+    fetchAllEmployeeService = new FetchAllEmployeeService(
+      mockEmployeeRepository as unknown as EmployeeRepository
+    );
+  });
 
-        await employeeRepository.create({
-            user: { connect: { id: 'user-2-id' } }
-        });
+  it("deve retornar todos os funcionários", async () => {
+    const employeesMock = [
+      {
+        id: "employee-1",
+        userId: "user-1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: "employee-2",
+        userId: "user-2",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
 
-        const result = await sut.execute();
-        const employees = result.employee;
+    mockEmployeeRepository.findMany.mockResolvedValueOnce(employeesMock);
 
-        expect(employees).toHaveLength(2);
-        expect(employees[0]).toHaveProperty('userId', 'user-1-id');
-        expect(employees[1]).toHaveProperty('userId', 'user-2-id');
-    });
+    const response = await fetchAllEmployeeService.execute();
+
+    expect(mockEmployeeRepository.findMany).toHaveBeenCalledTimes(1);
+    expect(response).toEqual({ employee: employeesMock });
+  });
+
+  it("deve retornar uma lista vazia se não houver funcionários", async () => {
+    mockEmployeeRepository.findMany.mockResolvedValueOnce([]);
+
+    const response = await fetchAllEmployeeService.execute();
+
+    expect(mockEmployeeRepository.findMany).toHaveBeenCalledTimes(1);
+    expect(response).toEqual({ employee: [] });
+  });
 });

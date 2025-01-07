@@ -1,42 +1,59 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { InMemoryPurchaseRepository } from '../../repositories/in-memory/in-memory-purchase-repository';
-import { FetchAllPurchaseService } from './fetch-all-purchase';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { FetchAllPurchaseService } from "./fetch-all-purchase";
+import { PurchaseRepository } from "../../repositories/purchase-repository";
 
-let purchaseRepository: InMemoryPurchaseRepository;
-let fetchAllPurchaseService: FetchAllPurchaseService;
+describe("FetchAllPurchaseService", () => {
+  let mockPurchaseRepository: PurchaseRepository;
+  let fetchAllPurchaseService: FetchAllPurchaseService;
 
-describe('FetchAllPurchaseService', () => {
   beforeEach(() => {
-    purchaseRepository = new InMemoryPurchaseRepository();
-    fetchAllPurchaseService = new FetchAllPurchaseService(purchaseRepository);
+    mockPurchaseRepository = {
+      findMany: vi.fn(),
+    } as unknown as PurchaseRepository;
+
+    fetchAllPurchaseService = new FetchAllPurchaseService(mockPurchaseRepository);
   });
 
-  it('should fetch all purchases', async () => {
-    // Criação de compras usando o formato correto
-    await purchaseRepository.create({
-      nf_number: '12345',
-      subTotal: 100,
-      user: { connect: { id: 'some-user-id' } }, // Use um ID de usuário válido
-      supplier: { connect: { id: 'some-supplier-id' } }, // Use um ID de fornecedor válido
+  it("deve retornar todas as compras disponíveis", async () => {
+    const mockPurchases = [
+      {
+        id: "purchase-1",
+        nf_number: "12345",
+        supplierId: "supplier-1",
+        userId: "user-1",
+        subTotal: 500,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: "purchase-2",
+        nf_number: "67890",
+        supplierId: "supplier-2",
+        userId: "user-2",
+        subTotal: 1000,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
+
+    vi.spyOn(mockPurchaseRepository, "findMany").mockResolvedValue(mockPurchases);
+
+    const result = await fetchAllPurchaseService.execute();
+
+    expect(mockPurchaseRepository.findMany).toHaveBeenCalled();
+    expect(result).toEqual({
+      purchase: mockPurchases,
     });
-
-    await purchaseRepository.create({
-      nf_number: '67890',
-      subTotal: 200,
-      user: { connect: { id: 'some-user-id' } },
-      supplier: { connect: { id: 'some-supplier-id' } },
-    });
-
-    const response = await fetchAllPurchaseService.execute();
-
-    expect(response.purchase).toHaveLength(2);
-    expect(response.purchase[0].nf_number).toBe('12345');
-    expect(response.purchase[1].nf_number).toBe('67890');
   });
-  
-  it('should return an empty array if no purchases exist', async () => {
-    const response = await fetchAllPurchaseService.execute();
 
-    expect(response.purchase).toHaveLength(0);
+  it("deve retornar uma lista vazia se não houver compras disponíveis", async () => {
+    vi.spyOn(mockPurchaseRepository, "findMany").mockResolvedValue([]);
+
+    const result = await fetchAllPurchaseService.execute();
+
+    expect(mockPurchaseRepository.findMany).toHaveBeenCalled();
+    expect(result).toEqual({
+      purchase: [],
+    });
   });
 });

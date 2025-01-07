@@ -1,49 +1,54 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { InMemoryUsersRepository } from "../../repositories/in-memory/in-memory-users-repository";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GetAllUsersService } from "./get-all-users";
+import { UserRepository } from "../../repositories/user-repository";
+import { User } from "@prisma/client";
 
-let userRepository: InMemoryUsersRepository;
-let sut: GetAllUsersService;
+describe("GetAllUsersService", () => {
+  let userRepository: UserRepository;
+  let getAllUsersService: GetAllUsersService;
 
-describe('Get All Users Service', () => {
   beforeEach(() => {
-    userRepository = new InMemoryUsersRepository();
-    sut = new GetAllUsersService(userRepository);
+    userRepository = {
+      findMany: vi.fn(),
+    } as unknown as UserRepository;
+
+    getAllUsersService = new GetAllUsersService(userRepository);
   });
 
-  it('should return all users', async () => {
-    const user1 = await userRepository.create({
-      name: 'John Doe',
-      email: 'johndoe@example.com',
-      password_hash: 'hashed_password',
-      role: 'EMPLOYEE',
-    });
+  it("deve retornar todos os usuários", async () => {
+    const mockUsers: User[] = [
+      {
+        id: "user-1",
+        name: "João Silva",
+        email: "joao@example.com",
+        password: "hashedpassword1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: "user-2",
+        name: "Maria Oliveira",
+        email: "maria@example.com",
+        password: "hashedpassword2",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ];
 
-    const user2 = await userRepository.create({
-      name: 'Jane Smith',
-      email: 'janesmith@example.com',
-      password_hash: 'hashed_password',
-      role: 'MANAGER',
-    });
+    vi.spyOn(userRepository, "findMany").mockResolvedValue(mockUsers);
 
-    const result = await sut.execute();
-    const users = result.users;
+    const response = await getAllUsersService.execute();
 
-    expect(users).toHaveLength(2);
+    expect(userRepository.findMany).toHaveBeenCalledTimes(1);
+    expect(response.users).toEqual(mockUsers);
+  });
 
-    expect(users).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: user1.id,
-          name: 'John Doe',
-          email: 'johndoe@example.com',
-        }),
-        expect.objectContaining({
-          id: user2.id,
-          name: 'Jane Smith',
-          email: 'janesmith@example.com',
-        }),
-      ])
-    );
+  it("deve retornar uma lista vazia quando não houver usuários", async () => {
+    vi.spyOn(userRepository, "findMany").mockResolvedValue([]);
+
+    const response = await getAllUsersService.execute();
+
+    expect(userRepository.findMany).toHaveBeenCalledTimes(1);
+    expect(response.users).toEqual([]);
   });
 });

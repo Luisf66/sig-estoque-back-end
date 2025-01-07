@@ -1,64 +1,62 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { fetchAllEmployees } from './fetch-all';
-import * as makeFetchAllEmployeesServiceModule from '../../../services/factories/employee/make-fetch-all-employees-service';
-import { Employee } from '@prisma/client'; // Ajuste conforme necessário
+import { describe, it, expect, vi } from "vitest";
+import { fetchAllEmployees } from "./fetch-all";
+import { FastifyRequest, FastifyReply } from "fastify";
+import { makeFetchAllEmployeesService } from "../../../services/factories/employee/make-fetch-all-employees-service";
 
-test('should fetch all employees successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/employee/make-fetch-all-employees-service");
 
-  app.get('/employees', fetchAllEmployees);
+describe("fetchAllEmployees Controller", () => {
+  it("deve retornar uma lista de funcionários e status 200", async () => {
+    // Mock do serviço
+    const mockFetchAllEmployeesService = {
+      execute: vi.fn().mockResolvedValue({
+        employee: [
+          { id: "1", name: "João", email: "joao@email.com" },
+          { id: "2", name: "Maria", email: "maria@email.com" },
+        ],
+      }),
+    };
+    vi.mocked(makeFetchAllEmployeesService).mockReturnValue(mockFetchAllEmployeesService);
 
-  const mockFetchAllEmployeesService = {
-    execute: vi.fn().mockResolvedValue({
+    // Mock do request e reply
+    const request = {} as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await fetchAllEmployees(request, reply);
+
+    expect(mockFetchAllEmployeesService.execute).toHaveBeenCalled();
+    expect(reply.status).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
       employee: [
-        { id: '1', name: 'Employee One', email: 'employee1@test.com' },
-        { id: '2', name: 'Employee Two', email: 'employee2@test.com' },
+        { id: "1", name: "João", email: "joao@email.com" },
+        { id: "2", name: "Maria", email: "maria@email.com" },
       ],
-    }),
-  };
-
-  vi.spyOn(makeFetchAllEmployeesServiceModule, 'makeFetchAllEmployeesService').mockReturnValue(mockFetchAllEmployeesService);
-
-  const response = await app.inject({
-    method: 'GET',
-    url: '/employees',
-  });
-
-  expect(response.statusCode).toBe(200);
-  expect(response.json()).toEqual({
-    employee: [
-      { id: '1', name: 'Employee One', email: 'employee1@test.com' },
-      { id: '2', name: 'Employee Two', email: 'employee2@test.com' },
-    ],
-  });
-});
-
-test('should return 500 if there is an internal server error', async () => {
-  const app = fastify();
-
-  app.get('/employees', fetchAllEmployees);
-
-  const mockFetchAllEmployeesService = {
-    execute: vi.fn().mockRejectedValue(new Error('Some error')),
-  };
-
-  vi.spyOn(makeFetchAllEmployeesServiceModule, 'makeFetchAllEmployeesService').mockReturnValue(mockFetchAllEmployeesService);
-
-  // Redirecionar console.error para ignorar erros
-  const originalConsoleError = console.error;
-  console.error = () => {};
-
-  try {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/employees',
     });
+  });
 
-    expect(response.statusCode).toBe(500);
-    expect(response.json()).toEqual({ message: 'Internal Server Error' });
-  } finally {
-    // Restaurar console.error
-    console.error = originalConsoleError;
-  }
+  it("deve retornar erro 500 em caso de erro inesperado", async () => {
+    // Mock do serviço para lançar erro
+    const mockFetchAllEmployeesService = {
+      execute: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
+    };
+    vi.mocked(makeFetchAllEmployeesService).mockReturnValue(mockFetchAllEmployeesService);
+
+    const request = {} as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await fetchAllEmployees(request, reply);
+
+    expect(reply.status).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "Internal Server Error",
+    });
+  });
 });

@@ -1,66 +1,103 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { updateManager } from './update';
-import * as makeUpdateManagerServiceModule from '../../../services/factories/manager/make-update-manager-service';
+import { describe, it, expect, vi } from "vitest";
+import { updateManager } from "./update";
+import { FastifyRequest, FastifyReply } from "fastify";
+import { makeUpdateManagerService } from "../../../services/factories/manager/make-update-manager-service";
 
-test('should update manager successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/manager/make-update-manager-service");
 
-  app.put('/managers/:id', updateManager);
+describe("updateManager Controller", () => {
+  it("deve atualizar o gerente com sucesso e retornar status 200", async () => {
+    // Mock do serviço
+    const mockUpdateManagerService = {
+      execute: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.mocked(makeUpdateManagerService).mockReturnValue(mockUpdateManagerService);
 
-  const mockUpdateManagerService = {
-    execute: vi.fn().mockResolvedValue({}),
-  };
+    // Mock do request e reply
+    const request = {
+      body: {
+        userId: "1",
+        name: "João Silva",
+        email: "joao.silva@email.com",
+        password: "newpassword123",
+      },
+    } as unknown as FastifyRequest;
 
-  vi.spyOn(makeUpdateManagerServiceModule, 'makeUpdateManagerService').mockReturnValue(mockUpdateManagerService);
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-  const response = await app.inject({
-    method: 'PUT',
-    url: '/managers/1',
-    payload: {
-      userId: 'user1',
-      name: 'Updated Manager',
-      email: 'updatedmanager@test.com',
-      password: 'newpassword123',
-    },
+    await updateManager(request, reply);
+
+    expect(mockUpdateManagerService.execute).toHaveBeenCalledWith({
+      userId: "1",
+      name: "João Silva",
+      email: "joao.silva@email.com",
+      password: "newpassword123",
+    });
+    expect(reply.status).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "Manager successfully updated.",
+    });
   });
 
-  expect(response.statusCode).toBe(200);
-  expect(response.json()).toEqual({ message: 'Manager successfully updated.' });
-});
+  it("deve retornar erro 500 em caso de erro inesperado", async () => {
+    // Mock do serviço para lançar um erro
+    const mockUpdateManagerService = {
+      execute: vi.fn().mockRejectedValue(new Error("Unexpected error")),
+    };
+    vi.mocked(makeUpdateManagerService).mockReturnValue(mockUpdateManagerService);
 
-test('should return a custom error message for testing', async () => {
-  const app = fastify();
-
-  app.put('/managers/:id', updateManager);
-
-  const mockUpdateManagerService = {
-    execute: vi.fn().mockRejectedValue(new Error('Simulated error for testing')),
-  };
-
-  vi.spyOn(makeUpdateManagerServiceModule, 'makeUpdateManagerService').mockReturnValue(mockUpdateManagerService);
-
-  // Redirecionar console.error para ignorar erros
-  const originalConsoleError = console.error;
-  console.error = () => {};
-
-  try {
-    const response = await app.inject({
-      method: 'PUT',
-      url: '/managers/1',
-      payload: {
-        userId: 'user1',
-        name: 'Updated Manager',
-        email: 'updatedmanager@test.com',
-        password: 'newpassword123',
+    const request = {
+      body: {
+        userId: "2",
+        name: "Maria Silva",
+        email: "maria.silva@email.com",
       },
-    });
+    } as unknown as FastifyRequest;
 
-    // Verificar a resposta esperada para erro
-    expect(response.statusCode).toBe(500);
-    expect(response.json()).toEqual({ message: 'Internal Server Error' });
-  } finally {
-    // Restaurar console.error
-    console.error = originalConsoleError;
-  }
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await updateManager(request, reply);
+
+    expect(reply.status).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({
+      message: "Internal Server Error",
+    });
+  });
+
+  it("deve lançar erro de validação para dados inválidos", async () => {
+    // Mock do serviço
+    const mockUpdateManagerService = {
+      execute: vi.fn(),
+    };
+    vi.mocked(makeUpdateManagerService).mockReturnValue(mockUpdateManagerService);
+  
+    const request = {
+      body: {
+        userId: "3",
+        name: "", // Nome inválido (string vazia)
+        email: "email_invalido", // Email inválido
+        password: "123", // Senha muito curta
+      },
+    } as unknown as FastifyRequest;
+  
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+  
+    try {
+      await updateManager(request, reply);
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect(error.message).toContain("Invalid");
+    }
+  
+    expect(mockUpdateManagerService.execute).not.toHaveBeenCalled();
+  });  
 });

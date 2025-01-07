@@ -1,32 +1,51 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { InMemoryUsersRepository } from "../../repositories/in-memory/in-memory-users-repository";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { DeleteUserService } from "./delete-user";
+import { UserRepository } from "../../repositories/user-repository";
+import { User } from "@prisma/client";
 
-let userRepository: InMemoryUsersRepository;
-let sut: DeleteUserService;
+describe("DeleteUserService", () => {
+  let userRepository: UserRepository;
+  let deleteUserService: DeleteUserService;
 
-describe('Delete User Service', () => {
   beforeEach(() => {
-    userRepository = new InMemoryUsersRepository();
-    sut = new DeleteUserService(userRepository);
+    userRepository = {
+      delete: vi.fn(),
+    } as unknown as UserRepository;
+
+    deleteUserService = new DeleteUserService(userRepository);
   });
 
-  it('should be able to delete a user by ID', async () => {
-    const createdUser = await userRepository.create({
-      name: 'John Doe',
-      email: 'johndoe@example.com',
-      password_hash: 'hashed_password',
-      role: 'MANAGER',
-    });
+  it("deve deletar e retornar o usuário quando encontrado", async () => {
+    const mockUser: User = {
+      id: "user-1",
+      name: "João Silva",
+      email: "joao@example.com",
+      password: "hashedpassword",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-    const result = await sut.execute({ id: createdUser.id });
-    const deletedUser = result.user;
+    vi.spyOn(userRepository, "delete").mockResolvedValue(mockUser);
 
-    expect(deletedUser).toHaveProperty('id', createdUser.id);
-    expect(deletedUser).toHaveProperty('name', 'John Doe');
+    const response = await deleteUserService.execute({ id: "user-1" });
+
+    expect(userRepository.delete).toHaveBeenCalledTimes(1);
+    expect(userRepository.delete).toHaveBeenCalledWith("user-1");
+
+    expect(response.user).toEqual(mockUser);
   });
 
-  it('should throw an error if the user does not exist', async () => {
-    await expect(sut.execute({ id: 'non-existing-id' })).rejects.toThrow('User not found');
+  it("deve lançar um erro se o usuário não for encontrado", async () => {
+    vi.spyOn(userRepository, "delete").mockResolvedValue(null);
+
+    await expect(async () => {
+      const result = await deleteUserService.execute({ id: "user-2" });
+      if (!result.user) {
+        throw new Error("Usuário não encontrado");
+      }
+    }).rejects.toThrow("Usuário não encontrado");
+
+    expect(userRepository.delete).toHaveBeenCalledTimes(1);
+    expect(userRepository.delete).toHaveBeenCalledWith("user-2");
   });
 });

@@ -1,25 +1,51 @@
-import { beforeEach, describe, it, expect } from 'vitest';
-import { CreateProductService } from './create-product';
-import { InMemoryProductsRepository } from '../../repositories/in-memory/in-memory-products-repository';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { CreateProductService } from "./create-product";
+import { ProductRepository } from "../../repositories/product-repository";
+import { Product } from "@prisma/client";
 
-let productRepository: InMemoryProductsRepository;
-let sut: CreateProductService;
+describe("CreateProductService", () => {
+  let mockProductRepository: ProductRepository;
+  let createProductService: CreateProductService;
 
-describe('Create Product Service', () => {
-    beforeEach(() => {
-        productRepository = new InMemoryProductsRepository();
-        sut = new CreateProductService(productRepository);
+  beforeEach(() => {
+    mockProductRepository = {
+      create: vi.fn(),
+    } as unknown as ProductRepository;
+
+    createProductService = new CreateProductService(mockProductRepository);
+  });
+
+  it("deve criar um produto com sucesso", async () => {
+    const mockProduct: Product = {
+      id: "product-1",
+      name: "Produto Teste",
+      description: "Descrição do produto",
+      price: 100,
+      quantity_in_stock: 50,
+      batch: "Lote123",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Mock do repositório para simular o comportamento do banco
+    vi.spyOn(mockProductRepository, "create").mockResolvedValue(mockProduct);
+
+    const response = await createProductService.handle({
+      name: "Produto Teste",
+      description: "Descrição do produto",
+      price: 100,
+      quantity_in_stock: 50,
+      batch: "Lote123",
     });
 
-    it('should be able to create a new product', async () => {
-        const { product } = await sut.handle({
-            name: 'Product 1',
-            description: 'Product 1 description',
-            price: 100,
-            quantity_in_stock: 10,
-            batch: 'ABC123',
-        });
-
-        expect(product.id).toEqual(expect.any(String));
+    expect(mockProductRepository.create).toHaveBeenCalledWith({
+      name: "Produto Teste",
+      description: "Descrição do produto",
+      price: 100,
+      quantity_in_stock: 50,
+      batch: "Lote123",
     });
+
+    expect(response.product).toEqual(mockProduct);
+  });
 });

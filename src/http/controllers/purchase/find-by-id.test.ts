@@ -1,78 +1,107 @@
-import { test, expect, vi } from 'vitest';
-import fastify from 'fastify';
-import { findPurchaseById } from './find-by-id';
-import * as makeFindPurchaseByIdServiceModule from '../../../services/factories/purchase/make-find-purchase-by-id-service';
+import { describe, it, expect, vi } from "vitest";
+import { findPurchaseById } from "./find-by-id";
+import { FastifyRequest, FastifyReply } from "fastify";
+import { makeFindPurchaseByIdService } from "../../../services/factories/purchase/make-find-purchase-by-id-service";
 
-test('should find a purchase by id successfully', async () => {
-  const app = fastify();
+vi.mock("../../../services/factories/purchase/make-find-purchase-by-id-service");
 
-  app.get('/purchases/:id', findPurchaseById);
+describe("findPurchaseById Controller", () => {
+  it("deve retornar a compra correspondente ao ID fornecido", async () => {
+    const mockFindPurchaseByIdService = {
+      execute: vi.fn().mockResolvedValue({
+        purchase: {
+          id: "purchase-1",
+          nf_number: "NF123",
+          supplierId: "supplier-1",
+          userId: "user-1",
+          items: [],
+        },
+      }),
+    };
 
-  const mockFindPurchaseByIdService = {
-    execute: vi.fn().mockResolvedValue({
-      purchase: {
-        id: 'purchase1',
-        nf_number: '12345',
-        subTotal: 100,
-        supplierId: 'supplier1',
-        userId: 'user1',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    }),
-  };
+    vi.mocked(makeFindPurchaseByIdService).mockReturnValue(mockFindPurchaseByIdService);
 
-  vi.spyOn(makeFindPurchaseByIdServiceModule, 'makeFindPurchaseByIdService').mockReturnValue(mockFindPurchaseByIdService);
+    const request = {
+      params: { id: "purchase-1" },
+    } as unknown as FastifyRequest;
 
-  const response = await app.inject({
-    method: 'GET',
-    url: '/purchases/purchase1',
-  });
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
 
-  expect(response.statusCode).toBe(200);
-  expect(response.json()).toEqual({
-    purchase: {
-      id: 'purchase1',
-      nf_number: '12345',
-      subTotal: 100,
-      supplierId: 'supplier1',
-      userId: 'user1',
-      createdAt: expect.any(String),
-      updatedAt: expect.any(String),
-    },
-  });
-});
+    await findPurchaseById(request, reply);
 
-test('should return 404 if purchase is not found', async () => {
-  const app = fastify();
-
-  app.get('/purchases/:id', findPurchaseById);
-
-  const mockFindPurchaseByIdService = {
-    execute: vi.fn().mockRejectedValue(new Error('Resource not found')),
-  };
-
-  vi.spyOn(makeFindPurchaseByIdServiceModule, 'makeFindPurchaseByIdService').mockReturnValue(mockFindPurchaseByIdService);
-
-  // Redirecionar console.error para ignorar erros
-  const originalConsoleError = console.error;
-  console.error = () => {};
-
-  try {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/purchases/nonexistent-id',
+    expect(mockFindPurchaseByIdService.execute).toHaveBeenCalledWith({
+      purchaseId: "purchase-1",
     });
+    expect(reply.code).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({
+      purchase: {
+        id: "purchase-1",
+        nf_number: "NF123",
+        supplierId: "supplier-1",
+        userId: "user-1",
+        items: [],
+      },
+    });
+  });
 
-    // Verificar a resposta esperada para erro
-    expect(response.statusCode).toBe(404);
-    expect(response.json()).toEqual({
-      error: 'Not Found',
-      message: 'Resource not found',
+  it("deve retornar erro 404 quando o recurso não for encontrado", async () => {
+    const mockFindPurchaseByIdService = {
+      execute: vi.fn().mockRejectedValue(new Error("Resource not found")),
+    };
+
+    vi.mocked(makeFindPurchaseByIdService).mockReturnValue(mockFindPurchaseByIdService);
+
+    const request = {
+      params: { id: "invalid-id" },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await findPurchaseById(request, reply);
+
+    expect(mockFindPurchaseByIdService.execute).toHaveBeenCalledWith({
+      purchaseId: "invalid-id",
+    });
+    expect(reply.code).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({
+      error: "Not Found",
+      message: "Resource not found",
       statusCode: 404,
     });
-  } finally {
-    // Restaurar console.error
-    console.error = originalConsoleError;
-  }
+  });
+
+  it("deve retornar erro 500 para erros inesperados", async () => {
+    const mockFindPurchaseByIdService = {
+      execute: vi.fn().mockRejectedValue(new Error("Unexpected error")),
+    };
+
+    vi.mocked(makeFindPurchaseByIdService).mockReturnValue(mockFindPurchaseByIdService);
+
+    const request = {
+      params: { id: "purchase-1" },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await findPurchaseById(request, reply);
+
+    expect(mockFindPurchaseByIdService.execute).toHaveBeenCalledWith({
+      purchaseId: "purchase-1",
+    });
+    expect(reply.code).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({
+      error: "Internal Server Error",
+      message: "An unexpected error occurred",
+      statusCode: 500,
+    });
+  });
 });

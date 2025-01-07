@@ -1,33 +1,41 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { InMemoryManagersRepository } from "../../repositories/in-memory/in-memory-manager-repository";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { FindManagerByUserId } from "./find-manager-by-user-id";
+import { ManagerRepository } from "../../repositories/manager-repository";
 
-let managerRepository: InMemoryManagersRepository;
-let sut: FindManagerByUserId;
+describe("FindManagerByUserId", () => {
+  let mockManagerRepository: ManagerRepository;
+  let findManagerByUserIdService: FindManagerByUserId;
 
-describe('Find Manager By User ID Service', () => {
   beforeEach(() => {
-    managerRepository = new InMemoryManagersRepository();
-    sut = new FindManagerByUserId(managerRepository);
+    mockManagerRepository = {
+      findByUserId: vi.fn(),
+    } as unknown as ManagerRepository;
+
+    findManagerByUserIdService = new FindManagerByUserId(mockManagerRepository);
   });
 
-  it('should be able to find a manager by user ID', async () => {
-    const createdManager = await managerRepository.create({
-      user: {
-        connect: { id: 'user-1' }
-      },
-    });
+  it("deve retornar o gerente ao buscar pelo userId existente", async () => {
+    const mockManager = {
+      id: "manager-1",
+      userId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
-    const result = await sut.execute({ userId: createdManager.userId });
-    const manager = result.manager;
+    vi.spyOn(mockManagerRepository, "findByUserId").mockResolvedValue(mockManager);
 
-    expect(manager).toHaveProperty('id', createdManager.id);
-    expect(manager).toHaveProperty('userId', 'user-1');
+    const response = await findManagerByUserIdService.execute({ userId: "user-1" });
+
+    expect(mockManagerRepository.findByUserId).toHaveBeenCalledWith("user-1");
+    expect(response.manager).toEqual(mockManager);
   });
 
-  it('should return null if manager is not found', async () => {
-    const result = await sut.execute({ userId: 'non-existing-user-id' });
+  it("deve retornar null ao buscar por um userId inexistente", async () => {
+    vi.spyOn(mockManagerRepository, "findByUserId").mockResolvedValue(null);
 
-    expect(result.manager).toBeNull();
+    const response = await findManagerByUserIdService.execute({ userId: "invalid-user" });
+
+    expect(mockManagerRepository.findByUserId).toHaveBeenCalledWith("invalid-user");
+    expect(response.manager).toBeNull();
   });
 });
