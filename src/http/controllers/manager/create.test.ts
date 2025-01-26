@@ -8,13 +8,11 @@ vi.mock("../../../services/factories/manager/make-create-manager-service");
 
 describe("createManager Controller", () => {
   it("deve criar um gerente com sucesso e retornar status 201", async () => {
-    // Mock do serviço
     const mockCreateManagerService = {
       execute: vi.fn().mockResolvedValue(undefined),
     };
     vi.mocked(makeCreateManagerService).mockReturnValue(mockCreateManagerService);
 
-    // Mock do request e reply
     const request = {
       body: {
         name: "João",
@@ -40,7 +38,6 @@ describe("createManager Controller", () => {
   });
 
   it("deve retornar erro 409 se o email já estiver em uso", async () => {
-    // Mock do serviço para lançar UserAlreadyExistsError
     const mockCreateManagerService = {
       execute: vi.fn().mockRejectedValue(new UserAlreadyExistsError()),
     };
@@ -68,7 +65,6 @@ describe("createManager Controller", () => {
   });
 
   it("deve lançar erro de validação ao receber dados inválidos", async () => {
-    // Mock do serviço
     const mockCreateManagerService = {
       execute: vi.fn(),
     };
@@ -87,13 +83,41 @@ describe("createManager Controller", () => {
       send: vi.fn(),
     } as unknown as FastifyReply;
 
-    try {
-      await createManager(request, reply);
-      throw new Error("O controlador deveria ter lançado um erro de validação.");
-    } catch (error) {
-      expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toContain("Invalid");
-      expect(mockCreateManagerService.execute).not.toHaveBeenCalled();
-    }
+    await expect(createManager(request, reply)).rejects.toThrowError(/Invalid/);
+
+    expect(mockCreateManagerService.execute).not.toHaveBeenCalled();
+    expect(reply.status).not.toHaveBeenCalled();
+    expect(reply.send).not.toHaveBeenCalled();
+  });
+
+  it("deve capturar erros inesperados e lançar novamente", async () => {
+    const mockCreateManagerService = {
+      execute: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
+    };
+    vi.mocked(makeCreateManagerService).mockReturnValue(mockCreateManagerService);
+
+    const request = {
+      body: {
+        name: "João",
+        email: "joao@email.com",
+        password: "password123",
+      },
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    await expect(createManager(request, reply)).rejects.toThrow("Erro inesperado");
+
+    expect(mockCreateManagerService.execute).toHaveBeenCalledWith({
+      name: "João",
+      email: "joao@email.com",
+      password: "password123",
+    });
+
+    expect(reply.status).not.toHaveBeenCalled();
+    expect(reply.send).not.toHaveBeenCalled();
   });
 });

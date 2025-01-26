@@ -33,15 +33,26 @@ describe("CreateSaleService", () => {
   });
 
   it("deve criar uma nova venda com itens válidos", async () => {
-    const mockSale = { id: "sale-1", nf_number: "12345", userId: "user-1", subTotal: 0 };
+    const mockSale = {
+      id: "sale-1",
+      sale_date: new Date(),
+      nf_number: "12345",
+      userId: "user-1",
+      subTotal: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
     const mockProducts = [
       { id: "product-1", name: "Product 1", is_active: true, quantity_in_stock: 10 },
       { id: "product-2", name: "Product 2", is_active: true, quantity_in_stock: 5 },
     ];
+
     const items = [
       { productId: "product-1", quantity: 2, value: 100 },
       { productId: "product-2", quantity: 3, value: 50 },
     ];
+
     const createdItems = [
       { id: "item-1", saleId: "sale-1", productId: "product-1", quantity: 2, value: 100 },
       { id: "item-2", saleId: "sale-1", productId: "product-2", quantity: 3, value: 50 },
@@ -115,6 +126,21 @@ describe("CreateSaleService", () => {
     await expect(
       createSaleService.handle({ nf_number: "12345", userId: "user-1", items })
     ).rejects.toThrowError("Insufficient stock for product Product 1");
+
+    expect(mockProductRepository.findManyByIds).toHaveBeenCalledWith(["product-1"]);
+  });
+
+  it("deve lançar erro se a quantidade em estoque for indefinida", async () => {
+    const mockProducts = [
+      { id: "product-1", name: "Product 1", is_active: true, quantity_in_stock: null },
+    ];
+    const items = [{ productId: "product-1", quantity: 2, value: 100 }];
+
+    vi.spyOn(mockProductRepository, "findManyByIds").mockResolvedValue(mockProducts);
+
+    await expect(
+      createSaleService.handle({ nf_number: "12345", userId: "user-1", items })
+    ).rejects.toThrowError("Stock quantity for product Product 1 is undefined");
 
     expect(mockProductRepository.findManyByIds).toHaveBeenCalledWith(["product-1"]);
   });

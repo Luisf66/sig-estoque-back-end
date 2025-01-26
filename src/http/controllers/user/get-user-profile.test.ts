@@ -80,6 +80,29 @@ describe("profile Controller", () => {
     expect(reply.send).toHaveBeenCalledWith({ message: "Resource not found" });
   });
 
+  it("deve retornar erro 404 para cenários não tratados", async () => {
+    mockGetUserProfileService.execute.mockResolvedValueOnce({
+      user: { id: "user-1", role: "UNEXPECTED_ROLE" }, // Role inesperada
+    });
+  
+    const request = {
+      jwtVerify: vi.fn().mockResolvedValueOnce(undefined),
+      user: { sub: "user-1" },
+    } as unknown as FastifyRequest;
+  
+    const reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+  
+    await profile(request, reply);
+  
+    expect(mockGetUserProfileService.execute).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(reply.status).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({ message: "Resource not found" });
+  });
+  
+
   it("deve retornar erro 500 para erros inesperados", async () => {
     mockGetUserProfileService.execute.mockRejectedValueOnce(new Error("Unexpected error"));
 

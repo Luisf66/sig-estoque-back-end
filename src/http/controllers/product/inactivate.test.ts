@@ -52,6 +52,33 @@ describe("inactivateProduct Controller", () => {
     expect(reply.status).toHaveBeenCalledWith(404);
     expect(reply.send).toHaveBeenCalledWith({ message: 'No records found.' });
   });
+  it("deve lançar erro genérico se ocorrer um erro inesperado no serviço", async () => {
+    const mockInactivateProductService = {
+      execute: vi.fn().mockRejectedValue(new Error("Unexpected error")),
+    };
+  
+    vi.mocked(makeInactivateProductService).mockReturnValue(mockInactivateProductService);
+  
+    const request = {
+      params: { id: "1" },
+    } as unknown as FastifyRequest;
+  
+    const reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+  
+    // Captura o erro e garante que ele foi lançado
+    await expect(inactivateProduct(request, reply)).rejects.toThrow("Unexpected error");
+  
+    // Verifica que o serviço foi chamado com os parâmetros corretos
+    expect(mockInactivateProductService.execute).toHaveBeenCalledWith({ productId: "1" });
+  
+    // Garante que o reply não foi chamado, já que o erro foi lançado
+    expect(reply.code).not.toHaveBeenCalled();
+    expect(reply.send).not.toHaveBeenCalled();
+  });
+  
 
   it("deve lançar erro de validação se o ID do produto for inválido", async () => {
     const request = {
