@@ -1,100 +1,97 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { FastifyRequest, FastifyReply } from "fastify";
 import { createPurchase } from "./create";
-import { FastifyReply, FastifyRequest } from "fastify";
 import { makeCreatePurchaseService } from "../../../services/factories/purchase/make-create-purchase-service";
 
 vi.mock("../../../services/factories/purchase/make-create-purchase-service");
 
-describe("createPurchase Controller", () => {
-  it("deve criar uma compra com sucesso", async () => {
-    const mockCreatePurchaseService = {
-      handle: vi.fn().mockResolvedValue(undefined),
+describe("CreatePurchase Controller", () => {
+  let mockRequest: Partial<FastifyRequest>;
+  let mockReply: Partial<FastifyReply>;
+  let statusMock: any;
+  let sendMock: any;
+
+  beforeEach(() => {
+    statusMock = vi.fn().mockReturnThis();
+    sendMock = vi.fn().mockReturnThis();
+
+    mockRequest = {};
+    mockReply = {
+      status: statusMock,
+      send: sendMock,
     };
 
-    vi.mocked(makeCreatePurchaseService).mockReturnValue(mockCreatePurchaseService);
+    vi.clearAllMocks();
+  });
 
-    const request = {
-      body: {
-        nf_number: "NF123456",
-        supplierId: "supplier-1",
-        userId: "user-1",
-        items: [
-          { productId: "product-1", quantity: 10, value: 100 },
-          { productId: "product-2", quantity: 5, value: 50 },
-        ],
-      },
-    } as unknown as FastifyRequest;
+  it("deve criar uma compra com sucesso (201)", async () => {
+    const mockHandle = vi.fn().mockResolvedValue({});
+    (makeCreatePurchaseService as any).mockReturnValue({
+      handle: mockHandle,
+    });
 
-    const reply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await createPurchase(request, reply);
-
-    expect(mockCreatePurchaseService.handle).toHaveBeenCalledWith({
-      nf_number: "NF123456",
-      supplierId: "supplier-1",
+    mockRequest.body = {
+      nf_number: "NF123",
+      supplierId: "sup-1",
       userId: "user-1",
       items: [
-        { productId: "product-1", quantity: 10, value: 100 },
-        { productId: "product-2", quantity: 5, value: 50 },
+        { productId: "prod-1", quantity: 10, value: 50 },
+        { productId: "prod-2", quantity: 5, value: 100 },
       ],
-    });
-    expect(reply.status).toHaveBeenCalledWith(201);
-    expect(reply.send).toHaveBeenCalled();
-  });
-
-  it("deve lançar erro de validação para corpo de requisição inválido", async () => {
-    const request = {
-      body: {
-        nf_number: "NF123456",
-        supplierId: "supplier-1",
-        userId: "user-1",
-        items: [
-          { productId: "product-1", quantity: "dez", value: 100 }, // Erro: quantidade não é um número
-        ],
-      },
-    } as unknown as FastifyRequest;
-
-    const reply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await expect(createPurchase(request, reply)).rejects.toThrowError();
-
-    expect(reply.status).not.toHaveBeenCalledWith(201);
-    expect(reply.send).not.toHaveBeenCalled();
-  });
-
-  it("deve repassar erros inesperados", async () => {
-    const mockCreatePurchaseService = {
-      handle: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
     };
 
-    vi.mocked(makeCreatePurchaseService).mockReturnValue(mockCreatePurchaseService);
+    await createPurchase(mockRequest as FastifyRequest, mockReply as FastifyReply);
 
-    const request = {
-      body: {
-        nf_number: "NF123456",
-        supplierId: "supplier-1",
-        userId: "user-1",
-        items: [
-          { productId: "product-1", quantity: 10, value: 100 },
-        ],
-      },
-    } as unknown as FastifyRequest;
+    expect(mockHandle).toHaveBeenCalledWith({
+      nf_number: "NF123",
+      supplierId: "sup-1",
+      userId: "user-1",
+      items: [
+        { productId: "prod-1", quantity: 10, value: 50 },
+        { productId: "prod-2", quantity: 5, value: 100 },
+      ],
+    });
+    expect(statusMock).toHaveBeenCalledWith(201);
+    expect(sendMock).toHaveBeenCalled();
+  });
 
-    const reply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
+  it("deve lançar erro se os dados forem inválidos", async () => {
+    mockRequest.body = {
+      nf_number: "NF123",
+      supplierId: "sup-1",
+      userId: "user-1",
+      items: [
+        { productId: "prod-1", quantity: "não é número", value: 50 }, // ❌ quantity inválido
+      ],
+    };
 
-    await expect(createPurchase(request, reply)).rejects.toThrowError("Erro inesperado");
+    await expect(
+      createPurchase(mockRequest as FastifyRequest, mockReply as FastifyReply)
+    ).rejects.toThrow();
 
-    expect(mockCreatePurchaseService.handle).toHaveBeenCalled();
-    expect(reply.status).not.toHaveBeenCalledWith(201);
-    expect(reply.send).not.toHaveBeenCalled();
+    expect(statusMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("deve propagar erros inesperados", async () => {
+    const mockHandle = vi.fn().mockRejectedValue(new Error("Erro inesperado"));
+    (makeCreatePurchaseService as any).mockReturnValue({
+      handle: mockHandle,
+    });
+
+    mockRequest.body = {
+      nf_number: "NF123",
+      supplierId: "sup-1",
+      userId: "user-1",
+      items: [
+        { productId: "prod-1", quantity: 10, value: 50 },
+      ],
+    };
+
+    await expect(
+      createPurchase(mockRequest as FastifyRequest, mockReply as FastifyReply)
+    ).rejects.toThrow("Erro inesperado");
+
+    expect(statusMock).not.toHaveBeenCalledWith(201);
   });
 });

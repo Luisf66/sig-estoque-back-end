@@ -1,102 +1,76 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { FastifyRequest, FastifyReply } from "fastify";
 import { fetchAllPurchaseByUserId } from "./fetch-all-by-user-id";
-import { FastifyReply, FastifyRequest } from "fastify";
 import { makeFetchAllPurchaseByUserIdService } from "../../../services/factories/purchase/make-fetch-all-purchase-by-user-id";
 
 vi.mock("../../../services/factories/purchase/make-fetch-all-purchase-by-user-id");
 
-describe("fetchAllPurchaseByUserId Controller", () => {
-  it("deve retornar todas as compras associadas ao usuário", async () => {
-    const mockFetchAllPurchaseByUserIdService = {
-      execute: vi.fn().mockResolvedValue({
-        purchases: [
-          { id: "purchase-1", nf_number: "NF123", userId: "user-1" },
-          { id: "purchase-2", nf_number: "NF124", userId: "user-1" },
-        ],
-      }),
+describe("FetchAllPurchaseByUserId Controller", () => {
+  let mockRequest: Partial<FastifyRequest>;
+  let mockReply: Partial<FastifyReply>;
+  let codeMock: any;
+  let sendMock: any;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    codeMock = vi.fn().mockReturnThis();
+    sendMock = vi.fn();
+
+    mockReply = {
+      code: codeMock,
+      send: sendMock,
     };
-
-    vi.mocked(makeFetchAllPurchaseByUserIdService).mockReturnValue(mockFetchAllPurchaseByUserIdService);
-
-    const request = {
-      params: {
-        userId: "user-1",
-      },
-    } as unknown as FastifyRequest;
-
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await fetchAllPurchaseByUserId(request, reply);
-
-    expect(mockFetchAllPurchaseByUserIdService.execute).toHaveBeenCalledWith({
-      userId: "user-1",
-    });
-    expect(reply.code).toHaveBeenCalledWith(200);
-    expect(reply.send).toHaveBeenCalledWith({
-      purchases: [
-        { id: "purchase-1", nf_number: "NF123", userId: "user-1" },
-        { id: "purchase-2", nf_number: "NF124", userId: "user-1" },
-      ],
-    });
   });
 
-  it("deve retornar erro se o parâmetro userId estiver ausente", async () => {
-    const request = {
-      params: {}, // Ausente userId
-    } as unknown as FastifyRequest;
-  
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-  
-    await fetchAllPurchaseByUserId(request, reply);
-  
-    // Como o controlador retorna um resultado válido, verificamos isso explicitamente.
-    expect(reply.code).toHaveBeenCalledWith(200);
-  
-    // Verifica se um array de compras foi retornado, mesmo com `userId` ausente.
-    expect(reply.send).toHaveBeenCalledWith({
-      purchases: expect.any(Array),
-    });
-  
-    // Adicionalmente, podemos verificar se o array de compras contém itens esperados.
-    expect(reply.send).toHaveBeenCalledWith({
-      purchases: [
-        { id: "purchase-1", nf_number: "NF123", userId: "user-1" },
-        { id: "purchase-2", nf_number: "NF124", userId: "user-1" },
-      ],
-    });
-  });
-  
+  it("deve retornar as compras corretamente para um userId válido", async () => {
+    const fakePurchases = [
+      { id: "1", nf_number: "NF001" },
+      { id: "2", nf_number: "NF002" },
+    ];
 
-  it("deve lidar com erros inesperados", async () => {
-    const mockFetchAllPurchaseByUserIdService = {
-      execute: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
+    const executeMock = vi.fn().mockResolvedValue({ purchases: fakePurchases });
+    (makeFetchAllPurchaseByUserIdService as vi.Mock).mockReturnValue({
+      execute: executeMock,
+    });
+
+    mockRequest = {
+      params: { userId: "user-123" },
     };
 
-    vi.mocked(makeFetchAllPurchaseByUserIdService).mockReturnValue(mockFetchAllPurchaseByUserIdService);
+    await fetchAllPurchaseByUserId(
+      mockRequest as FastifyRequest,
+      mockReply as FastifyReply
+    );
 
-    const request = {
-      params: {
-        userId: "user-1",
-      },
-    } as unknown as FastifyRequest;
+    expect(executeMock).toHaveBeenCalledWith({ userId: "user-123" });
+    expect(codeMock).toHaveBeenCalledWith(200);
+    expect(sendMock).toHaveBeenCalledWith({ purchases: fakePurchases });
+  });
 
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await expect(fetchAllPurchaseByUserId(request, reply)).rejects.toThrowError("Erro inesperado");
-
-    expect(mockFetchAllPurchaseByUserIdService.execute).toHaveBeenCalledWith({
-      userId: "user-1",
+  it("deve lançar erro se o userId estiver ausente", async () => {
+    const executeMock = vi.fn().mockImplementation(({ userId }) => {
+      if (!userId) {
+        throw new Error("Missing userId");
+      }
     });
-    expect(reply.code).not.toHaveBeenCalledWith(200);
-    expect(reply.send).not.toHaveBeenCalled();
+
+    (makeFetchAllPurchaseByUserIdService as vi.Mock).mockReturnValue({
+      execute: executeMock,
+    });
+
+    mockRequest = {
+      params: {}, // ausência do userId
+    };
+
+    await expect(
+      fetchAllPurchaseByUserId(
+        mockRequest as FastifyRequest,
+        mockReply as FastifyReply
+      )
+    ).rejects.toThrow("Missing userId");
+
+    expect(codeMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
   });
 });

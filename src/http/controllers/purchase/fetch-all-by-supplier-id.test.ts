@@ -1,75 +1,76 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { FastifyRequest, FastifyReply } from "fastify";
 import { fetchAllPurchaseBySupplierId } from "./fetch-all-by-supplier-id";
-import { FastifyReply, FastifyRequest } from "fastify";
 import { makeFetchAllPurchaseBySupplierIdService } from "../../../services/factories/purchase/make-fetch-all-purchase-by-supplier-id";
 
 vi.mock("../../../services/factories/purchase/make-fetch-all-purchase-by-supplier-id");
 
-describe("fetchAllPurchaseBySupplierId Controller", () => {
-  it("deve retornar erro se o parâmetro supplierId estiver ausente", async () => {
-    const request = {
-      params: {}, // supplierId ausente
-    } as unknown as FastifyRequest;
+describe("FetchAllPurchaseBySupplierId Controller", () => {
+  let mockRequest: Partial<FastifyRequest>;
+  let mockReply: Partial<FastifyReply>;
+  let codeMock: any;
+  let sendMock: any;
 
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
+  beforeEach(() => {
+    vi.clearAllMocks();
 
-    try {
-      await fetchAllPurchaseBySupplierId(request, reply);
-    } catch (error) {
-      expect(error).toBeInstanceOf(Error); // Verifica que um erro foi lançado
-    }
+    codeMock = vi.fn().mockReturnThis();
+    sendMock = vi.fn();
 
-    expect(reply.code).not.toHaveBeenCalled();
-    expect(reply.send).not.toHaveBeenCalled();
+    mockReply = {
+      code: codeMock,
+      send: sendMock,
+    };
   });
 
-  it("deve retornar todas as compras para um supplierId válido", async () => {
-    const mockFetchAllPurchaseBySupplierIdService = {
-      execute: vi.fn().mockResolvedValue({
-        purchases: [
-          {
-            id: "1",
-            supplierId: "123",
-            item: "Produto A",
-            quantity: 10,
-          },
-        ],
-      }),
+  it("deve retornar as compras corretamente para um supplierId válido", async () => {
+    const fakePurchases = [
+      { id: "1", nf_number: "NF001" },
+      { id: "2", nf_number: "NF002" },
+    ];
+
+    const executeMock = vi.fn().mockResolvedValue({ purchases: fakePurchases });
+    (makeFetchAllPurchaseBySupplierIdService as vi.Mock).mockReturnValue({
+      execute: executeMock,
+    });
+
+    mockRequest = {
+      params: { supplierId: "supplier-123" },
     };
 
-    // Mock direto, sem usar `vi.mocked`
-    vi.mocked(makeFetchAllPurchaseBySupplierIdService).mockImplementation(
-      () => mockFetchAllPurchaseBySupplierIdService
+    await fetchAllPurchaseBySupplierId(
+      mockRequest as FastifyRequest,
+      mockReply as FastifyReply
     );
 
-    const request = {
-      params: { supplierId: "123" },
-    } as unknown as FastifyRequest;
+    expect(executeMock).toHaveBeenCalledWith({ supplierId: "supplier-123" });
+    expect(codeMock).toHaveBeenCalledWith(200);
+    expect(sendMock).toHaveBeenCalledWith({ purchases: fakePurchases });
+  });
 
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await fetchAllPurchaseBySupplierId(request, reply);
-
-    expect(mockFetchAllPurchaseBySupplierIdService.execute).toHaveBeenCalledWith({
-      supplierId: "123",
+  it("deve lançar erro se o supplierId estiver ausente", async () => {
+    const executeMock = vi.fn().mockImplementation(({ supplierId }) => {
+      if (!supplierId) {
+        throw new Error("Missing supplierId");
+      }
     });
 
-    expect(reply.code).toHaveBeenCalledWith(200);
-    expect(reply.send).toHaveBeenCalledWith({
-      purchases: [
-        {
-          id: "1",
-          supplierId: "123",
-          item: "Produto A",
-          quantity: 10,
-        },
-      ],
+    (makeFetchAllPurchaseBySupplierIdService as vi.Mock).mockReturnValue({
+      execute: executeMock,
     });
+
+    mockRequest = {
+      params: {}, // ausência do supplierId
+    };
+
+    await expect(
+      fetchAllPurchaseBySupplierId(
+        mockRequest as FastifyRequest,
+        mockReply as FastifyReply
+      )
+    ).rejects.toThrow("Missing supplierId");
+
+    expect(codeMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
   });
 });

@@ -1,60 +1,61 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { FastifyRequest, FastifyReply } from "fastify";
 import { fetchAllPurchase } from "./fetch-all";
-import { FastifyReply, FastifyRequest } from "fastify";
 import { makeFetchAllPurchaseService } from "../../../services/factories/purchase/make-fetch-all-purchase-service";
 
 vi.mock("../../../services/factories/purchase/make-fetch-all-purchase-service");
 
-describe("fetchAllPurchase Controller", () => {
-  it("deve retornar todas as compras", async () => {
-    const mockFetchAllPurchaseService = {
-      execute: vi.fn().mockResolvedValue({
-        purchase: [
-          { id: "purchase-1", nf_number: "NF123", userId: "user-1" },
-          { id: "purchase-2", nf_number: "NF124", userId: "user-2" },
-        ],
-      }),
+describe("FetchAllPurchase Controller", () => {
+  let mockRequest: Partial<FastifyRequest>;
+  let mockReply: Partial<FastifyReply>;
+  let codeMock: any;
+  let sendMock: any;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockRequest = {};
+    codeMock = vi.fn().mockReturnThis();
+    sendMock = vi.fn();
+
+    mockReply = {
+      code: codeMock,
+      send: sendMock,
     };
-
-    vi.mocked(makeFetchAllPurchaseService).mockReturnValue(mockFetchAllPurchaseService);
-
-    const request = {} as unknown as FastifyRequest;
-
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await fetchAllPurchase(request, reply);
-
-    expect(mockFetchAllPurchaseService.execute).toHaveBeenCalled();
-    expect(reply.code).toHaveBeenCalledWith(200);
-    expect(reply.send).toHaveBeenCalledWith({
-      purchase: [
-        { id: "purchase-1", nf_number: "NF123", userId: "user-1" },
-        { id: "purchase-2", nf_number: "NF124", userId: "user-2" },
-      ],
-    });
   });
 
-  it("deve lidar com erros inesperados", async () => {
-    const mockFetchAllPurchaseService = {
-      execute: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
-    };
+  it("deve retornar todas as compras com sucesso (200)", async () => {
+    const fakePurchases = [
+      { id: "1", nf_number: "NF001" },
+      { id: "2", nf_number: "NF002" },
+    ];
 
-    vi.mocked(makeFetchAllPurchaseService).mockReturnValue(mockFetchAllPurchaseService);
+    const executeMock = vi.fn().mockResolvedValue({ purchase: fakePurchases });
+    (makeFetchAllPurchaseService as vi.Mock).mockReturnValue({
+      execute: executeMock,
+    });
 
-    const request = {} as unknown as FastifyRequest;
+    await fetchAllPurchase(
+      mockRequest as FastifyRequest,
+      mockReply as FastifyReply
+    );
 
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
+    expect(executeMock).toHaveBeenCalled();
+    expect(codeMock).toHaveBeenCalledWith(200);
+    expect(sendMock).toHaveBeenCalledWith({ purchase: fakePurchases });
+  });
 
-    await expect(fetchAllPurchase(request, reply)).rejects.toThrowError("Erro inesperado");
+  it("deve propagar erros inesperados", async () => {
+    const executeMock = vi.fn().mockRejectedValue(new Error("Erro inesperado"));
+    (makeFetchAllPurchaseService as vi.Mock).mockReturnValue({
+      execute: executeMock,
+    });
 
-    expect(mockFetchAllPurchaseService.execute).toHaveBeenCalled();
-    expect(reply.code).not.toHaveBeenCalledWith(200);
-    expect(reply.send).not.toHaveBeenCalled();
+    await expect(
+      fetchAllPurchase(mockRequest as FastifyRequest, mockReply as FastifyReply)
+    ).rejects.toThrow("Erro inesperado");
+
+    expect(codeMock).not.toHaveBeenCalled();
+    expect(sendMock).not.toHaveBeenCalled();
   });
 });
