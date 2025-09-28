@@ -1,45 +1,48 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FindEmployeeByIdService } from "./find-employee-by-id";
-import { EmployeeRepository } from "../../repositories/employee-repository";
 
 describe("FindEmployeeByIdService", () => {
+  let employeeRepository: any;
   let findEmployeeByIdService: FindEmployeeByIdService;
-  let mockEmployeeRepository: { findById: vi.Mock };
 
   beforeEach(() => {
-    mockEmployeeRepository = {
+    employeeRepository = {
       findById: vi.fn(),
     };
 
-    findEmployeeByIdService = new FindEmployeeByIdService(
-      mockEmployeeRepository as unknown as EmployeeRepository
-    );
+    findEmployeeByIdService = new FindEmployeeByIdService(employeeRepository);
   });
 
-  it("deve retornar um funcionário pelo ID", async () => {
-    const employeeMock = {
-      id: "employee-1",
+  it("deve retornar um employee quando o ID existir", async () => {
+    const fakeEmployee = {
+      id: "emp-1",
       userId: "user-1",
-      createdAt: new Date(),
-      updatedAt: new Date(),
     };
 
-    mockEmployeeRepository.findById.mockResolvedValueOnce(employeeMock);
+    employeeRepository.findById.mockResolvedValue(fakeEmployee);
 
-    const response = await findEmployeeByIdService.execute({ id: "employee-1" });
+    const result = await findEmployeeByIdService.execute({ id: "emp-1" });
 
-    expect(mockEmployeeRepository.findById).toHaveBeenCalledTimes(1);
-    expect(mockEmployeeRepository.findById).toHaveBeenCalledWith("employee-1");
-    expect(response).toEqual({ employee: employeeMock });
+    expect(employeeRepository.findById).toHaveBeenCalledWith("emp-1");
+    expect(result).toEqual({ employee: fakeEmployee });
   });
 
-  it("deve retornar null se o funcionário não for encontrado", async () => {
-    mockEmployeeRepository.findById.mockResolvedValueOnce(null);
+  it("deve retornar null quando o employee não for encontrado", async () => {
+    employeeRepository.findById.mockResolvedValue(null);
 
-    const response = await findEmployeeByIdService.execute({ id: "employee-2" });
+    const result = await findEmployeeByIdService.execute({ id: "emp-999" });
 
-    expect(mockEmployeeRepository.findById).toHaveBeenCalledTimes(1);
-    expect(mockEmployeeRepository.findById).toHaveBeenCalledWith("employee-2");
-    expect(response).toEqual({ employee: null });
+    expect(employeeRepository.findById).toHaveBeenCalledWith("emp-999");
+    expect(result).toEqual({ employee: null });
+  });
+
+  it("deve lançar erro se o repositório falhar", async () => {
+    employeeRepository.findById.mockRejectedValue(new Error("Erro interno"));
+
+    await expect(
+      findEmployeeByIdService.execute({ id: "emp-1" })
+    ).rejects.toThrowError("Erro interno");
+
+    expect(employeeRepository.findById).toHaveBeenCalledWith("emp-1");
   });
 });

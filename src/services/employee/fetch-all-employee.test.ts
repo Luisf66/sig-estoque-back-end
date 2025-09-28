@@ -1,51 +1,45 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { FetchAllEmployeeService } from "./fetch-all-employee";
-import { EmployeeRepository } from "../../repositories/employee-repository";
 
 describe("FetchAllEmployeeService", () => {
+  let employeeRepository: any;
   let fetchAllEmployeeService: FetchAllEmployeeService;
-  let mockEmployeeRepository: { findMany: vi.Mock };
 
   beforeEach(() => {
-    mockEmployeeRepository = {
+    employeeRepository = {
       findMany: vi.fn(),
     };
 
-    fetchAllEmployeeService = new FetchAllEmployeeService(
-      mockEmployeeRepository as unknown as EmployeeRepository
-    );
+    fetchAllEmployeeService = new FetchAllEmployeeService(employeeRepository);
   });
 
-  it("deve retornar todos os funcionários", async () => {
-    const employeesMock = [
-      {
-        id: "employee-1",
-        userId: "user-1",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "employee-2",
-        userId: "user-2",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
+  it("deve retornar uma lista de employees com sucesso", async () => {
+    const fakeEmployees = [
+      { id: "emp-1", userId: "user-1" },
+      { id: "emp-2", userId: "user-2" },
     ];
 
-    mockEmployeeRepository.findMany.mockResolvedValueOnce(employeesMock);
+    employeeRepository.findMany.mockResolvedValue(fakeEmployees);
 
-    const response = await fetchAllEmployeeService.execute();
+    const result = await fetchAllEmployeeService.execute();
 
-    expect(mockEmployeeRepository.findMany).toHaveBeenCalledTimes(1);
-    expect(response).toEqual({ employee: employeesMock });
+    expect(employeeRepository.findMany).toHaveBeenCalled();
+    expect(result).toEqual({ employee: fakeEmployees });
   });
 
-  it("deve retornar uma lista vazia se não houver funcionários", async () => {
-    mockEmployeeRepository.findMany.mockResolvedValueOnce([]);
+  it("deve retornar uma lista vazia quando não houver employees", async () => {
+    employeeRepository.findMany.mockResolvedValue([]);
 
-    const response = await fetchAllEmployeeService.execute();
+    const result = await fetchAllEmployeeService.execute();
 
-    expect(mockEmployeeRepository.findMany).toHaveBeenCalledTimes(1);
-    expect(response).toEqual({ employee: [] });
+    expect(employeeRepository.findMany).toHaveBeenCalled();
+    expect(result).toEqual({ employee: [] });
+  });
+
+  it("deve lançar erro se o repositório falhar", async () => {
+    employeeRepository.findMany.mockRejectedValue(new Error("Erro interno"));
+
+    await expect(fetchAllEmployeeService.execute()).rejects.toThrowError("Erro interno");
+    expect(employeeRepository.findMany).toHaveBeenCalled();
   });
 });

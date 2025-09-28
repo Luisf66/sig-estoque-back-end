@@ -1,7 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CreateEmployeeService } from "./create-employee";
-import { EmployeeRepository } from "../../repositories/employee-repository";
-import { UserRepository } from "../../repositories/user-repository";
 import { hash } from "bcryptjs";
 
 vi.mock("bcryptjs", () => ({
@@ -9,87 +7,75 @@ vi.mock("bcryptjs", () => ({
 }));
 
 describe("CreateEmployeeService", () => {
+  let employeeRepository: any;
+  let userRepository: any;
   let createEmployeeService: CreateEmployeeService;
-  let mockEmployeeRepository: { create: vi.Mock };
-  let mockUserRepository: { findByEmail: vi.Mock; create: vi.Mock };
 
   beforeEach(() => {
-    mockEmployeeRepository = {
+    employeeRepository = {
       create: vi.fn(),
     };
 
-    mockUserRepository = {
+    userRepository = {
       findByEmail: vi.fn(),
       create: vi.fn(),
     };
 
-    createEmployeeService = new CreateEmployeeService(
-      mockEmployeeRepository as unknown as EmployeeRepository,
-      mockUserRepository as unknown as UserRepository
-    );
-
-    // Configurar mock do hash
-    vi.mocked(hash).mockResolvedValue("hashed-password");
+    createEmployeeService = new CreateEmployeeService(employeeRepository, userRepository);
   });
 
-  it("deve criar um novo funcionário", async () => {
-    mockUserRepository.findByEmail.mockResolvedValueOnce(null); // Nenhum usuário com o mesmo email
-    mockUserRepository.create.mockResolvedValueOnce({
-      id: "user-1",
+  it("deve criar um employee com sucesso", async () => {
+    const fakePasswordHash = "hashed-password";
+    (hash as any).mockResolvedValue(fakePasswordHash);
+
+    userRepository.findByEmail.mockResolvedValue(null);
+    userRepository.create.mockResolvedValue({
+      id: "user-123",
       name: "John Doe",
-      email: "johndoe@example.com",
-      password_hash: "hashed-password",
+      email: "john@example.com",
       role: "EMPLOYEE",
     });
 
-    mockEmployeeRepository.create.mockResolvedValueOnce({
-      id: "employee-1",
-      userId: "user-1",
-    });
+    const fakeEmployee = {
+      id: "employee-123",
+      userId: "user-123",
+    };
 
-    const response = await createEmployeeService.execute({
+    employeeRepository.create.mockResolvedValue(fakeEmployee);
+
+    const result = await createEmployeeService.execute({
       name: "John Doe",
-      email: "johndoe@example.com",
+      email: "john@example.com",
       password: "123456",
     });
 
-    expect(mockUserRepository.findByEmail).toHaveBeenCalledWith("johndoe@example.com");
-    expect(mockUserRepository.create).toHaveBeenCalledWith({
+    expect(hash).toHaveBeenCalledWith("123456", 6);
+    expect(userRepository.findByEmail).toHaveBeenCalledWith("john@example.com");
+    expect(userRepository.create).toHaveBeenCalledWith({
       name: "John Doe",
-      email: "johndoe@example.com",
-      password_hash: "hashed-password",
+      email: "john@example.com",
+      password_hash: fakePasswordHash,
       role: "EMPLOYEE",
     });
-    expect(mockEmployeeRepository.create).toHaveBeenCalledWith({
-      user: { connect: { id: "user-1" } },
+    expect(employeeRepository.create).toHaveBeenCalledWith({
+      user: { connect: { id: "user-123" } },
     });
-    expect(response).toEqual({
-      employee: {
-        id: "employee-1",
-        userId: "user-1",
-      },
-    });
+    expect(result).toEqual({ employee: fakeEmployee });
   });
 
-  it("deve lançar um erro ao tentar criar um funcionário com um email já existente", async () => {
-    mockUserRepository.findByEmail.mockResolvedValueOnce({
-      id: "user-1",
-      name: "John Doe",
-      email: "johndoe@example.com",
-      password_hash: "hashed-password",
-      role: "EMPLOYEE",
-    });
+  it("deve lançar erro se o email já existir", async () => {
+    userRepository.findByEmail.mockResolvedValue({ id: "existing-user" });
 
     await expect(
       createEmployeeService.execute({
         name: "John Doe",
-        email: "johndoe@example.com",
+        email: "john@example.com",
         password: "123456",
       })
     ).rejects.toThrowError("Email already exists.");
 
-    expect(mockUserRepository.findByEmail).toHaveBeenCalledWith("johndoe@example.com");
-    expect(mockUserRepository.create).not.toHaveBeenCalled();
-    expect(mockEmployeeRepository.create).not.toHaveBeenCalled();
+    expect(userRepository.findByEmail).toHaveBeenCalledWith("john@example.com");
+    expect(userRepository.create).not.toHaveBeenCalled();
+    expect(employeeRepository.create).not.toHaveBeenCalled();
   });
 });
