@@ -1,129 +1,108 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { FastifyRequest, FastifyReply } from "fastify";
 import { createSupplier } from "./create";
 import { makeCreateSupplierService } from "../../../services/factories/supplier/make-create-supplier-service";
-import { FastifyRequest, FastifyReply } from "fastify";
-import { z } from "zod"; // Importar o Zod para simular o erro
+import { z } from "zod";
 
-vi.mock("../../../services/factories/supplier/make-create-supplier-service");
+vi.mock("../../../services/factories/supplier/make-create-supplier-service", () => {
+  return {
+    makeCreateSupplierService: vi.fn(),
+  };
+});
 
-describe("createSupplier Controller", () => {
-  let mockCreateSupplierService: { handle: vi.Mock };
+describe("CreateSupplier Controller", () => {
+  let codeMock: ReturnType<typeof vi.fn>;
+  let sendMock: ReturnType<typeof vi.fn>;
+  let mockReply: Partial<FastifyReply>;
 
   beforeEach(() => {
-    mockCreateSupplierService = {
-      handle: vi.fn().mockResolvedValue({
-        supplier: {
-          id: "supplier-1",
-          social_name: "Supplier Social Name",
-          company_name: "Supplier Company Name",
-          phone_number: "123456789",
-          cnpj: "12345678000100",
-        },
-      }),
-    };
+    codeMock = vi.fn().mockReturnThis();
+    sendMock = vi.fn().mockReturnThis();
 
-    vi.mocked(makeCreateSupplierService).mockReturnValue(mockCreateSupplierService);
+    mockReply = {
+      code: codeMock,
+      send: sendMock,
+    };
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
-  it("deve retornar erro 400 quando os dados da requisição forem inválidos", async () => {
-    // Mock do objeto FastifyRequest com dados inválidos
-    const request = {
-      body: {
-        social_name: "", // Nome social vazio (inválido)
-        company_name: "Supplier Company Name",
-        phone_number: "123456789",
-        cnpj: "12345678000100",
-      },
-    } as unknown as FastifyRequest;
-  
-    // Mock do FastifyReply
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-  
-    // Simular um erro de validação do Zod
-    mockCreateSupplierService.handle.mockRejectedValueOnce(new z.ZodError([]));
-  
-    // Chamar a função do controlador
-    await createSupplier(request, reply);
-  
-    // Garantir que o erro de validação foi tratado corretamente
-    expect(reply.code).toHaveBeenCalledWith(400);
-    expect(reply.send).toHaveBeenCalledWith({ message: "Invalid request data" });
-  });
-  
-  it("deve retornar erro 500 para erros inesperados", async () => {
-    // Mock do objeto FastifyRequest com dados válidos
-    const request = {
-      body: {
-        social_name: "Supplier Social Name",
-        company_name: "Supplier Company Name",
-        phone_number: "123456789",
-        cnpj: "12345678000100",
-      },
-    } as unknown as FastifyRequest;
-  
-    // Mock do FastifyReply
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-  
-    // Simular um erro genérico no serviço
-    mockCreateSupplierService.handle.mockRejectedValueOnce(new Error("Unexpected error"));
-  
-    // Chamar a função do controlador
-    await createSupplier(request, reply);
-  
-    // Garantir que o erro inesperado foi tratado corretamente
-    expect(reply.code).toHaveBeenCalledWith(500);
-    expect(reply.send).toHaveBeenCalledWith({ message: "Internal Server Error" });
-  });
 
-  it("deve criar um fornecedor e retornar status 201 com os dados do fornecedor", async () => {
-    // Mock do objeto FastifyRequest com dados válidos
-    const request = {
-      body: {
-        social_name: "Supplier Social Name",
-        company_name: "Supplier Company Name",
-        phone_number: "123456789",
-        cnpj: "12345678000100",
-      },
-    } as unknown as FastifyRequest;
-
-    // Mock do objeto FastifyReply
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    // Chamar a função do controlador
-    await createSupplier(request, reply);
-
-    // Garantir que o serviço foi chamado com os dados corretos
-    expect(mockCreateSupplierService.handle).toHaveBeenCalledWith({
-      social_name: "Supplier Social Name",
-      company_name: "Supplier Company Name",
-      phone_number: "123456789",
-      cnpj: "12345678000100",
-    });
-
-    // Garantir que a resposta foi 201
-    expect(reply.code).toHaveBeenCalledWith(201);
-
-    // Garantir que a resposta contém os dados do fornecedor criado
-    expect(reply.send).toHaveBeenCalledWith({
+  it("deve criar um fornecedor com sucesso (201)", async () => {
+    const mockHandle = vi.fn().mockResolvedValue({
       supplier: {
-        id: "supplier-1",
-        social_name: "Supplier Social Name",
-        company_name: "Supplier Company Name",
-        phone_number: "123456789",
-        cnpj: "12345678000100",
+        id: "sup-1",
+        social_name: "Fornecedor LTDA",
+        company_name: "Fornecedor Comércio",
+        phone_number: "11999999999",
+        cnpj: "12345678000199",
       },
     });
+
+    (makeCreateSupplierService as unknown as vi.Mock).mockReturnValue({
+      handle: mockHandle,
+    });
+
+    const mockRequest = {
+      body: {
+        social_name: "Fornecedor LTDA",
+        company_name: "Fornecedor Comércio",
+        phone_number: "11999999999",
+        cnpj: "12345678000199",
+      },
+    } as Partial<FastifyRequest>;
+
+    await createSupplier(mockRequest as FastifyRequest, mockReply as FastifyReply);
+
+    expect(mockHandle).toHaveBeenCalledWith({
+      social_name: "Fornecedor LTDA",
+      company_name: "Fornecedor Comércio",
+      phone_number: "11999999999",
+      cnpj: "12345678000199",
+    });
+    expect(codeMock).toHaveBeenCalledWith(201);
+    expect(sendMock).toHaveBeenCalledWith({
+      supplier: expect.objectContaining({
+        id: "sup-1",
+        social_name: "Fornecedor LTDA",
+      }),
+    });
+  });
+
+  it("deve retornar 400 se os dados forem inválidos (ZodError)", async () => {
+    const mockRequest = {
+      body: {
+        // faltando campos obrigatórios
+        social_name: 123, // tipo errado
+      },
+    } as Partial<FastifyRequest>;
+
+    await createSupplier(mockRequest as FastifyRequest, mockReply as FastifyReply);
+
+    expect(codeMock).toHaveBeenCalledWith(400);
+    expect(sendMock).toHaveBeenCalledWith({ message: "Invalid request data" });
+  });
+
+  it("deve retornar 500 se ocorrer um erro inesperado", async () => {
+    const mockHandle = vi.fn().mockRejectedValue(new Error("Erro inesperado"));
+
+    (makeCreateSupplierService as unknown as vi.Mock).mockReturnValue({
+      handle: mockHandle,
+    });
+
+    const mockRequest = {
+      body: {
+        social_name: "Fornecedor LTDA",
+        company_name: "Fornecedor Comércio",
+        phone_number: "11999999999",
+        cnpj: "12345678000199",
+      },
+    } as Partial<FastifyRequest>;
+
+    await createSupplier(mockRequest as FastifyRequest, mockReply as FastifyReply);
+
+    expect(codeMock).toHaveBeenCalledWith(500);
+    expect(sendMock).toHaveBeenCalledWith({ message: "Internal Server Error" });
   });
 });

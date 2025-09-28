@@ -1,79 +1,61 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { fetchAllSupplier } from "./fetch-all";
-import { makeFetchAllSupplierService } from "../../../services/factories/supplier/make-fetch-all-supplier-service";
-import { FastifyRequest, FastifyReply } from "fastify";
+// src/http/controllers/supplier/fetch-all.test.ts
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { fetchAllSupplier } from './fetch-all';
+import * as makeFetchAllSupplierServiceModule from '../../../services/factories/supplier/make-fetch-all-supplier-service';
 
-vi.mock("../../../services/factories/supplier/make-fetch-all-supplier-service");
-
-describe("fetchAllSupplier Controller", () => {
-  let mockFetchAllSupplierService: { execute: vi.Mock };
+describe('fetchAllSupplier Controller', () => {
+  let mockRequest: Partial<FastifyRequest>;
+  let mockReply: Partial<FastifyReply>;
+  const codeMock = vi.fn().mockReturnThis();
+  const sendMock = vi.fn().mockReturnThis();
 
   beforeEach(() => {
-    mockFetchAllSupplierService = {
-      execute: vi.fn().mockResolvedValue({
-        supplier: [
-          {
-            id: "supplier-1",
-            social_name: "Supplier 1",
-            company_name: "Company 1",
-            phone_number: "123456789",
-            cnpj: "11111111000111",
-          },
-          {
-            id: "supplier-2",
-            social_name: "Supplier 2",
-            company_name: "Company 2",
-            phone_number: "987654321",
-            cnpj: "22222222000222",
-          },
-        ],
-      }),
-    };
-
-    vi.mocked(makeFetchAllSupplierService).mockReturnValue(mockFetchAllSupplierService);
-  });
-
-  afterEach(() => {
     vi.clearAllMocks();
+
+    mockRequest = {};
+
+    mockReply = {
+      code: codeMock,
+      send: sendMock,
+    };
   });
 
-  it("deve retornar todos os fornecedores com status 200", async () => {
-    // Mock do objeto FastifyRequest
-    const request = {} as unknown as FastifyRequest;
-
-    // Mock do objeto FastifyReply
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    // Chamar a função do controlador
-    await fetchAllSupplier(request, reply);
-
-    // Garantir que o serviço foi chamado
-    expect(mockFetchAllSupplierService.execute).toHaveBeenCalled();
-
-    // Garantir que a resposta foi 200
-    expect(reply.code).toHaveBeenCalledWith(200);
-
-    // Garantir que a resposta contém os fornecedores esperados
-    expect(reply.send).toHaveBeenCalledWith({
+  it('deve retornar 200 e a lista de fornecedores com sucesso', async () => {
+    const executeMock = vi.fn().mockResolvedValue({
       supplier: [
-        {
-          id: "supplier-1",
-          social_name: "Supplier 1",
-          company_name: "Company 1",
-          phone_number: "123456789",
-          cnpj: "11111111000111",
-        },
-        {
-          id: "supplier-2",
-          social_name: "Supplier 2",
-          company_name: "Company 2",
-          phone_number: "987654321",
-          cnpj: "22222222000222",
-        },
+        { id: '1', social_name: 'Fornecedor A' },
+        { id: '2', social_name: 'Fornecedor B' },
       ],
     });
+
+    vi.spyOn(makeFetchAllSupplierServiceModule, 'makeFetchAllSupplierService').mockReturnValue({
+      execute: executeMock,
+    } as any);
+
+    await fetchAllSupplier(mockRequest as FastifyRequest, mockReply as FastifyReply);
+
+    expect(executeMock).toHaveBeenCalled();
+    expect(codeMock).toHaveBeenCalledWith(200);
+    expect(sendMock).toHaveBeenCalledWith({
+      supplier: [
+        { id: '1', social_name: 'Fornecedor A' },
+        { id: '2', social_name: 'Fornecedor B' },
+      ],
+    });
+  });
+
+  it('deve lançar erro se o serviço falhar', async () => {
+    const executeMock = vi.fn().mockRejectedValue(new Error('Erro interno'));
+
+    vi.spyOn(makeFetchAllSupplierServiceModule, 'makeFetchAllSupplierService').mockReturnValue({
+      execute: executeMock,
+    } as any);
+
+    await expect(
+      fetchAllSupplier(mockRequest as FastifyRequest, mockReply as FastifyReply)
+    ).rejects.toThrow('Erro interno');
+
+    expect(executeMock).toHaveBeenCalled();
   });
 });

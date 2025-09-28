@@ -1,99 +1,82 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { fetchManyByCompanyName } from "./fetch-many-by-company-name";
-import { makeFetchManySupplierByCompanyNameService } from "../../../services/factories/supplier/make-fetch-many-by-company-name";
-import { FastifyRequest, FastifyReply } from "fastify";
+// src/http/controllers/supplier/fetch-many-by-company-name.test.ts
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { fetchManyByCompanyName } from './fetch-many-by-company-name';
+import * as makeFetchManySupplierByCompanyNameModule from '../../../services/factories/supplier/make-fetch-many-by-company-name';
 
-vi.mock("../../../services/factories/supplier/make-fetch-many-by-company-name");
-
-describe("fetchManyByCompanyName Controller", () => {
-  let mockFetchManyByCompanyNameService: { execute: vi.Mock };
+describe('fetchManyByCompanyName Controller', () => {
+  let mockRequest: Partial<FastifyRequest>;
+  let mockReply: Partial<FastifyReply>;
+  let codeMock: ReturnType<typeof vi.fn>;
+  let sendMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    mockFetchManyByCompanyNameService = {
-      execute: vi.fn().mockResolvedValue({
-        supplier: [
-          {
-            id: "supplier-1",
-            social_name: "Supplier 1",
-            company_name: "Company 1",
-            phone_number: "123456789",
-            cnpj: "11111111000111",
-          },
-          {
-            id: "supplier-2",
-            social_name: "Supplier 2",
-            company_name: "Company 2",
-            phone_number: "987654321",
-            cnpj: "22222222000222",
-          },
-        ],
-      }),
-    };
-
-    vi.mocked(makeFetchManySupplierByCompanyNameService).mockReturnValue(mockFetchManyByCompanyNameService);
-  });
-
-  afterEach(() => {
     vi.clearAllMocks();
+
+    codeMock = vi.fn().mockReturnThis();
+    sendMock = vi.fn().mockReturnThis();
+
+    mockRequest = {};
+    mockReply = {
+      code: codeMock,
+      send: sendMock,
+    };
   });
 
-  it("deve retornar os fornecedores pelo nome da empresa com status 200", async () => {
-    const request = {
-      params: { companyName: "Company 1" },
-    } as unknown as FastifyRequest;
-
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await fetchManyByCompanyName(request, reply);
-
-    expect(mockFetchManyByCompanyNameService.execute).toHaveBeenCalledWith({
-      companyName: "Company 1",
-    });
-    expect(reply.code).toHaveBeenCalledWith(200);
-    expect(reply.send).toHaveBeenCalledWith({
+  it('deve retornar 200 e os fornecedores filtrados pelo companyName', async () => {
+    const executeMock = vi.fn().mockResolvedValue({
       supplier: [
-        {
-          id: "supplier-1",
-          social_name: "Supplier 1",
-          company_name: "Company 1",
-          phone_number: "123456789",
-          cnpj: "11111111000111",
-        },
-        {
-          id: "supplier-2",
-          social_name: "Supplier 2",
-          company_name: "Company 2",
-          phone_number: "987654321",
-          cnpj: "22222222000222",
-        },
+        { id: '1', company_name: 'Empresa A' },
+        { id: '2', company_name: 'Empresa A' },
+      ],
+    });
+
+    vi.spyOn(
+      makeFetchManySupplierByCompanyNameModule,
+      'makeFetchManySupplierByCompanyNameService'
+    ).mockReturnValue({
+      execute: executeMock,
+    } as any);
+
+    mockRequest.params = { companyName: 'Empresa A' };
+
+    await fetchManyByCompanyName(
+      mockRequest as FastifyRequest,
+      mockReply as FastifyReply
+    );
+
+    expect(executeMock).toHaveBeenCalledWith({ companyName: 'Empresa A' });
+    expect(codeMock).toHaveBeenCalledWith(200);
+    expect(sendMock).toHaveBeenCalledWith({
+      supplier: [
+        { id: '1', company_name: 'Empresa A' },
+        { id: '2', company_name: 'Empresa A' },
       ],
     });
   });
 
-  it("deve retornar erro 500 em caso de falha", async () => {
-    mockFetchManyByCompanyNameService.execute.mockRejectedValue(new Error("Erro ao buscar fornecedores"));
+  it('deve retornar 500 se ocorrer um erro no serviço', async () => {
+    const executeMock = vi.fn().mockRejectedValue(new Error('Erro interno'));
 
-    const request = {
-      params: { companyName: "Company 1" },
-    } as unknown as FastifyRequest;
+    vi.spyOn(
+      makeFetchManySupplierByCompanyNameModule,
+      'makeFetchManySupplierByCompanyNameService'
+    ).mockReturnValue({
+      execute: executeMock,
+    } as any);
 
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
+    mockRequest.params = { companyName: 'Empresa A' };
 
-    await fetchManyByCompanyName(request, reply);
+    await fetchManyByCompanyName(
+      mockRequest as FastifyRequest,
+      mockReply as FastifyReply
+    );
 
-    expect(mockFetchManyByCompanyNameService.execute).toHaveBeenCalledWith({
-      companyName: "Company 1",
-    });
-    expect(reply.code).toHaveBeenCalledWith(500);
-    expect(reply.send).toHaveBeenCalledWith({
-      error: "Internal Server Error",
-      message: "An error occurred while fetching suppliers",
+    expect(executeMock).toHaveBeenCalledWith({ companyName: 'Empresa A' });
+    expect(codeMock).toHaveBeenCalledWith(500);
+    expect(sendMock).toHaveBeenCalledWith({
+      error: 'Internal Server Error',
+      message: 'An error occurred while fetching suppliers',
       statusCode: 500,
     });
   });

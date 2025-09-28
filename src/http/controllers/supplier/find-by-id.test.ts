@@ -1,81 +1,101 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { findSupplierById } from "./find-by-id";
-import { makeFindSupplierByIdService } from "../../../services/factories/supplier/make-find-supplier-by-id-service";
-import { FastifyRequest, FastifyReply } from "fastify";
+// src/http/controllers/supplier/find-by-id.test.ts
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { findSupplierById } from './find-by-id';
+import * as makeFindSupplierByIdModule from '../../../services/factories/supplier/make-find-supplier-by-id-service';
 
-vi.mock("../../../services/factories/supplier/make-find-supplier-by-id-service");
-
-describe("findSupplierById Controller", () => {
-  let mockFindSupplierByIdService: { execute: vi.Mock };
+describe('findSupplierById Controller', () => {
+  let mockRequest: Partial<FastifyRequest>;
+  let mockReply: Partial<FastifyReply>;
+  let codeMock: ReturnType<typeof vi.fn>;
+  let sendMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    mockFindSupplierByIdService = {
-      execute: vi.fn().mockResolvedValue({
-        supplier: {
-          id: "supplier-1",
-          social_name: "Social Name",
-          company_name: "Company Name",
-          phone_number: "123456789",
-          cnpj: "11111111000111",
-        },
-      }),
-    };
-
-    vi.mocked(makeFindSupplierByIdService).mockReturnValue(mockFindSupplierByIdService);
-  });
-
-  afterEach(() => {
     vi.clearAllMocks();
+
+    codeMock = vi.fn().mockReturnThis();
+    sendMock = vi.fn().mockReturnThis();
+
+    mockRequest = {};
+    mockReply = {
+      code: codeMock,
+      send: sendMock,
+    };
   });
 
-  it("deve retornar o fornecedor pelo ID com status 200", async () => {
-    const request = {
-      params: { id: "supplier-1" },
-    } as unknown as FastifyRequest;
-
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await findSupplierById(request, reply);
-
-    expect(mockFindSupplierByIdService.execute).toHaveBeenCalledWith({
-      supplierId: "supplier-1",
+  it('deve retornar 200 e os dados do fornecedor quando encontrado', async () => {
+    const executeMock = vi.fn().mockResolvedValue({
+      supplier: { id: '1', company_name: 'Empresa X' },
     });
-    expect(reply.code).toHaveBeenCalledWith(200);
-    expect(reply.send).toHaveBeenCalledWith({
-      supplier: {
-        id: "supplier-1",
-        social_name: "Social Name",
-        company_name: "Company Name",
-        phone_number: "123456789",
-        cnpj: "11111111000111",
-      },
+
+    vi.spyOn(
+      makeFindSupplierByIdModule,
+      'makeFindSupplierByIdService'
+    ).mockReturnValue({
+      execute: executeMock,
+    } as any);
+
+    mockRequest.params = { id: '1' };
+
+    await findSupplierById(
+      mockRequest as FastifyRequest,
+      mockReply as FastifyReply
+    );
+
+    expect(executeMock).toHaveBeenCalledWith({ supplierId: '1' });
+    expect(codeMock).toHaveBeenCalledWith(200);
+    expect(sendMock).toHaveBeenCalledWith({
+      supplier: { id: '1', company_name: 'Empresa X' },
     });
   });
 
-  it("deve retornar erro 500 em caso de falha", async () => {
-    mockFindSupplierByIdService.execute.mockRejectedValue(new Error("Erro ao buscar fornecedor"));
+  it('deve retornar 500 se ocorrer um erro no serviço', async () => {
+    const executeMock = vi.fn().mockRejectedValue(new Error('Erro interno'));
 
-    const request = {
-      params: { id: "supplier-1" },
-    } as unknown as FastifyRequest;
+    vi.spyOn(
+      makeFindSupplierByIdModule,
+      'makeFindSupplierByIdService'
+    ).mockReturnValue({
+      execute: executeMock,
+    } as any);
 
-    const reply = {
-      code: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
+    mockRequest.params = { id: '1' };
 
-    await findSupplierById(request, reply);
+    await findSupplierById(
+      mockRequest as FastifyRequest,
+      mockReply as FastifyReply
+    );
 
-    expect(mockFindSupplierByIdService.execute).toHaveBeenCalledWith({
-      supplierId: "supplier-1",
+    expect(executeMock).toHaveBeenCalledWith({ supplierId: '1' });
+    expect(codeMock).toHaveBeenCalledWith(500);
+    expect(sendMock).toHaveBeenCalledWith({
+      error: 'Internal Server Error',
+      message: 'An error occurred while fetching the supplier',
+      statusCode: 500,
     });
-    expect(reply.code).toHaveBeenCalledWith(500);
-    expect(reply.send).toHaveBeenCalledWith({
-      error: "Internal Server Error",
-      message: "An error occurred while fetching the supplier",
+  });
+
+  it('deve retornar 500 se o parâmetro id estiver ausente', async () => {
+    const executeMock = vi.fn();
+
+    vi.spyOn(
+      makeFindSupplierByIdModule,
+      'makeFindSupplierByIdService'
+    ).mockReturnValue({
+      execute: executeMock,
+    } as any);
+
+    mockRequest.params = {}; // sem id
+
+    await findSupplierById(
+      mockRequest as FastifyRequest,
+      mockReply as FastifyReply
+    );
+
+    expect(codeMock).toHaveBeenCalledWith(500);
+    expect(sendMock).toHaveBeenCalledWith({
+      error: 'Internal Server Error',
+      message: 'An error occurred while fetching the supplier',
       statusCode: 500,
     });
   });
