@@ -1,54 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { InactivateProductService } from "./inactivate-product";
-import { ProductRepository } from "../../repositories/product-repository";
+import { InMemoryProductsRepository } from "../../repositories/in-memory/in-memory-products-repository";
 
 describe("InactivateProductService", () => {
-  let mockProductRepository: ProductRepository;
-  let inactivateProductService: InactivateProductService;
+  let productsRepository: InMemoryProductsRepository;
+  let sut: InactivateProductService;
 
   beforeEach(() => {
-    mockProductRepository = {
-      findById: vi.fn(),
-      findMany: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      inactivate: vi.fn(),
-    } as unknown as ProductRepository;
-
-    inactivateProductService = new InactivateProductService(mockProductRepository);
+    productsRepository = new InMemoryProductsRepository();
+    sut = new InactivateProductService(productsRepository);
   });
 
-  it("deve inativar um produto com sucesso", async () => {
-    const mockProduct = {
-      id: "product-1",
-      name: "Produto A",
-      description: "Descrição do produto A",
+  it("deve inativar um produto existente", async () => {
+    const product = await productsRepository.create({
+      name: "Produto Ativo",
+      description: "Descrição",
       price: 100,
       quantity_in_stock: 50,
-      batch: "Lote123",
-      is_active: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+      batch: "BATCH-123",
+      // is_active true por padrão
+    });
 
-    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
-    vi.spyOn(mockProductRepository, "inactivate").mockResolvedValue();
+    await sut.execute({ productId: product.id });
 
-    await inactivateProductService.execute({ productId: "product-1" });
+    // Buscar novamente para verificar se foi inativado
+    const updated = await productsRepository.findById(product.id);
 
-    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
-    expect(mockProductRepository.inactivate).toHaveBeenCalledWith("product-1");
+    expect(updated).not.toBeNull();
+    expect(updated?.is_active).toBe(false);
   });
 
-  it("deve lançar um erro se o produto não for encontrado", async () => {
-    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(null);
-
+  it("deve lançar erro se o produto não existir", async () => {
     await expect(
-      inactivateProductService.execute({ productId: "product-1" })
+      sut.execute({ productId: "produto-inexistente" })
     ).rejects.toThrowError("Product not found");
-
-    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
-    expect(mockProductRepository.inactivate).not.toHaveBeenCalled();
   });
 });

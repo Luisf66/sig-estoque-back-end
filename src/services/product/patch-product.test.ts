@@ -1,95 +1,79 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { PatchProductService } from "./patch-product";
-import { ProductRepository } from "../../repositories/product-repository";
+import { InMemoryProductsRepository } from "../../repositories/in-memory/in-memory-products-repository";
 import { ResourceNotFoundError } from "../errors/resource-not-found-error";
 import { InactiveError } from "../errors/inactive-error";
 
 describe("PatchProductService", () => {
-  let mockProductRepository: ProductRepository;
-  let patchProductService: PatchProductService;
+  let productsRepository: InMemoryProductsRepository;
+  let sut: PatchProductService;
 
   beforeEach(() => {
-    mockProductRepository = {
-      findById: vi.fn(),
-      patch: vi.fn(),
-      findMany: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      inactivate: vi.fn(),
-    } as unknown as ProductRepository;
-
-    patchProductService = new PatchProductService(mockProductRepository);
+    productsRepository = new InMemoryProductsRepository();
+    sut = new PatchProductService(productsRepository);
   });
 
-  it("deve atualizar um produto ativo com sucesso", async () => {
-    const mockProduct = {
-      id: "product-1",
-      name: "Produto A",
-      description: "Descrição do produto A",
+  it("deve atualizar parcialmente um produto ativo com sucesso", async () => {
+    const product = await productsRepository.create({
+      name: "Produto Original",
+      description: "Desc original",
       price: 100,
-      quantity_in_stock: 50,
-      batch: "Lote123",
-      is_active: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    const updatedData = { name: "Produto A Atualizado", price: 120 };
-
-    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
-    vi.spyOn(mockProductRepository, "patch").mockResolvedValue({
-      ...mockProduct,
-      ...updatedData,
+      quantity_in_stock: 10,
+      batch: "BATCH-1",
     });
 
-    const result = await patchProductService.handle({
-      id: "product-1",
-      data: updatedData,
+    const response = await sut.handle({
+      id: product.id,
+      data: {
+        name: "Produto Atualizado",
+        price: 150,
+      },
     });
 
-    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
-    expect(mockProductRepository.patch).toHaveBeenCalledWith("product-1", updatedData);
-    expect(result.product).toEqual({ ...mockProduct, ...updatedData });
-  });
-
-  it("deve lançar um erro se o produto não for encontrado", async () => {
-    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(null);
-
-    await expect(
-      patchProductService.handle({
-        id: "product-1",
-        data: { name: "Produto Inexistente" },
+    expect(response.product).toEqual(
+      expect.objectContaining({
+        id: product.id,
+        name: "Produto Atualizado",
+        price: 150,
+        description: "Desc original", // não foi alterado
       })
-    ).rejects.toThrowError(ResourceNotFoundError);
-
-    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
-    expect(mockProductRepository.patch).not.toHaveBeenCalled();
+    );
   });
 
-  it("deve lançar um erro se o produto estiver inativo", async () => {
-    const mockProduct = {
-      id: "product-1",
+  it("deve lançar ResourceNotFoundError se o produto não existir", async () => {
+    await expect(
+      sut.handle({
+        id: "produto-inexistente",
+        data: { name: "Novo Nome" },
+      })
+    ).rejects.toBeInstanceOf(ResourceNotFoundError);
+  });
+
+  it("deve lançar InactiveError se o produto estiver inativo", async () => {
+    const product = await productsRepository.create({
       name: "Produto Inativo",
-      description: "Descrição do produto inativo",
-      price: 100,
-      quantity_in_stock: 50,
-      batch: "Lote123",
-      is_active: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+      description: "Desc",
+      price: 50,
+      quantity_in_stock: 5,
+      batch: "BATCH-2",
+    });
 
-    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
+    // Força inativação
+    if (typeof productsRepository.inactivate === "function") {
+      await productsRepository.inactivate(product.id);
+    } else {
+      // fallback se não existir método inactivate
+      const p = await productsRepository.findById(product.id);
+      if (p) {
+        p.is_active = false;
+      }
+    }
 
     await expect(
-      patchProductService.handle({
-        id: "product-1",
-        data: { name: "Produto Atualizado" },
+      sut.handle({
+        id: product.id,
+        data: { name: "Tentativa de atualização" },
       })
-    ).rejects.toThrowError(InactiveError);
-
-    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
-    expect(mockProductRepository.patch).not.toHaveBeenCalled();
+    ).rejects.toBeInstanceOf(InactiveError);
   });
 });

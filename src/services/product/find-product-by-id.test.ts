@@ -1,76 +1,58 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { FindProductByIdService } from "./find-product-by-id";
-import { ProductRepository } from "../../repositories/product-repository";
+import { InMemoryProductsRepository } from "../../repositories/in-memory/in-memory-products-repository";
 import { ResourceNotFoundError } from "../errors/resource-not-found-error";
 import { InactiveError } from "../errors/inactive-error";
-import { Product } from "@prisma/client";
 
 describe("FindProductByIdService", () => {
-  let mockProductRepository: ProductRepository;
-  let findProductByIdService: FindProductByIdService;
+  let productsRepository: InMemoryProductsRepository;
+  let sut: FindProductByIdService;
 
   beforeEach(() => {
-    mockProductRepository = {
-      findById: vi.fn(),
-      findMany: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-    } as unknown as ProductRepository;
-
-    findProductByIdService = new FindProductByIdService(mockProductRepository);
+    productsRepository = new InMemoryProductsRepository();
+    sut = new FindProductByIdService(productsRepository);
   });
 
-  it("deve retornar o produto quando o ID for válido e o produto estiver ativo", async () => {
-    const mockProduct: Product = {
-      id: "product-1",
-      name: "Produto A",
-      description: "Descrição do produto A",
+  it("deve retornar o produto quando ele existir e estiver ativo", async () => {
+    const product = await productsRepository.create({
+      name: "Produto Teste",
+      description: "Descrição",
       price: 100,
-      quantity_in_stock: 50,
-      batch: "Lote123",
-      is_active: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+      quantity_in_stock: 20,
+      batch: "BATCH-1",
+      // is_active omitido → repositório deve definir true por padrão
+    });
 
-    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
+    const response = await sut.execute({ productId: product.id });
 
-    const response = await findProductByIdService.execute({ productId: "product-1" });
-
-    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
-    expect(response.product).toEqual(mockProduct);
+    expect(response.product).toEqual(
+      expect.objectContaining({
+        id: product.id,
+        name: "Produto Teste",
+        is_active: true,
+      })
+    );
   });
 
-  it("deve lançar um erro quando o produto não for encontrado", async () => {
-    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(null);
+  it("deve lançar ResourceNotFoundError se o produto não existir", async () => {
+    await expect(
+      sut.execute({ productId: "produto-inexistente" })
+    ).rejects.toBeInstanceOf(ResourceNotFoundError);
+  });
+
+  it("deve lançar InactiveError se o produto estiver inativo", async () => {
+    // Cria o produto já inativo (evita depender de um método update inexistente)
+    const product = await productsRepository.create({
+      name: "Produto Inativo",
+      description: "Descrição",
+      price: 50,
+      quantity_in_stock: 10,
+      batch: "BATCH-2",
+      is_active: false, // cria diretamente como inativo
+    });
 
     await expect(
-      findProductByIdService.execute({ productId: "product-1" })
-    ).rejects.toThrow(ResourceNotFoundError);
-
-    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
-  });
-
-  it("deve lançar um erro quando o produto estiver inativo", async () => {
-    const mockProduct: Product = {
-      id: "product-1",
-      name: "Produto A",
-      description: "Descrição do produto A",
-      price: 100,
-      quantity_in_stock: 50,
-      batch: "Lote123",
-      is_active: false, // Produto inativo
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    vi.spyOn(mockProductRepository, "findById").mockResolvedValue(mockProduct);
-
-    await expect(
-      findProductByIdService.execute({ productId: "product-1" })
-    ).rejects.toThrow(InactiveError);
-
-    expect(mockProductRepository.findById).toHaveBeenCalledWith("product-1");
+      sut.execute({ productId: product.id })
+    ).rejects.toBeInstanceOf(InactiveError);
   });
 });

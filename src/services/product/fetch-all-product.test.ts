@@ -1,52 +1,46 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { FetchAllProductService } from "./fetch-all-product";
-import { ProductRepository } from "../../repositories/product-repository";
-import { Product } from "@prisma/client";
+import { InMemoryProductsRepository } from "../../repositories/in-memory/in-memory-products-repository";
 
 describe("FetchAllProductService", () => {
-  let mockProductRepository: ProductRepository;
-  let fetchAllProductService: FetchAllProductService;
+  let productsRepository: InMemoryProductsRepository;
+  let sut: FetchAllProductService;
 
   beforeEach(() => {
-    mockProductRepository = {
-      findMany: vi.fn(),
-    } as unknown as ProductRepository;
-
-    fetchAllProductService = new FetchAllProductService(mockProductRepository);
+    productsRepository = new InMemoryProductsRepository();
+    sut = new FetchAllProductService(productsRepository);
   });
 
-  it("deve buscar todos os produtos com sucesso", async () => {
-    const mockProducts: Product[] = [
-      {
-        id: "product-1",
-        name: "Produto A",
-        description: "Descrição do produto A",
-        price: 100,
-        quantity_in_stock: 50,
-        batch: "Lote123",
-        is_active: true, // Adicionado para atender ao tipo `Product`
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "product-2",
-        name: "Produto B",
-        description: "Descrição do produto B",
-        price: 200,
-        quantity_in_stock: 30,
-        batch: "Lote456",
-        is_active: true, // Adicionado para atender ao tipo `Product`
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ];
-  
-    // Mock do método findMany para simular o retorno de produtos
-    vi.spyOn(mockProductRepository, "findMany").mockResolvedValue(mockProducts);
-  
-    const response = await fetchAllProductService.execute();
-  
-    expect(mockProductRepository.findMany).toHaveBeenCalled();
-    expect(response.product).toEqual(mockProducts);
+  it("deve retornar uma lista vazia quando não houver produtos", async () => {
+    const response = await sut.execute();
+    expect(response.product).toEqual([]);
+  });
+
+  it("deve retornar todos os produtos cadastrados", async () => {
+    await productsRepository.create({
+      name: "Produto 1",
+      description: "Descrição 1",
+      price: 10,
+      quantity_in_stock: 5,
+      batch: "L1",
+    });
+
+    await productsRepository.create({
+      name: "Produto 2",
+      description: "Descrição 2",
+      price: 20,
+      quantity_in_stock: 10,
+      batch: "L2",
+    });
+
+    const response = await sut.execute();
+
+    expect(response.product).toHaveLength(2);
+    expect(response.product).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "Produto 1", batch: "L1" }),
+        expect.objectContaining({ name: "Produto 2", batch: "L2" }),
+      ])
+    );
   });
 });

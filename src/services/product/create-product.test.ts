@@ -1,51 +1,61 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { CreateProductService } from "./create-product";
-import { ProductRepository } from "../../repositories/product-repository";
-import { Product } from "@prisma/client";
+import { InMemoryProductsRepository } from "../../repositories/in-memory/in-memory-products-repository";
 
 describe("CreateProductService", () => {
-  let mockProductRepository: ProductRepository;
-  let createProductService: CreateProductService;
+  let productsRepository: InMemoryProductsRepository;
+  let sut: CreateProductService;
 
   beforeEach(() => {
-    mockProductRepository = {
-      create: vi.fn(),
-    } as unknown as ProductRepository;
-
-    createProductService = new CreateProductService(mockProductRepository);
+    productsRepository = new InMemoryProductsRepository();
+    sut = new CreateProductService(productsRepository);
   });
 
-  it("deve criar um produto com sucesso", async () => {
-    const mockProduct: Product = {
-      id: "product-1",
+  it("deve criar um novo produto com sucesso", async () => {
+    const response = await sut.handle({
       name: "Produto Teste",
-      description: "Descrição do produto",
-      price: 100,
-      quantity_in_stock: 50,
-      batch: "Lote123",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    // Mock do repositório para simular o comportamento do banco
-    vi.spyOn(mockProductRepository, "create").mockResolvedValue(mockProduct);
-
-    const response = await createProductService.handle({
-      name: "Produto Teste",
-      description: "Descrição do produto",
-      price: 100,
-      quantity_in_stock: 50,
-      batch: "Lote123",
+      description: "Um produto de teste",
+      price: 100.5,
+      quantity_in_stock: 10,
+      batch: "Lote A",
     });
 
-    expect(mockProductRepository.create).toHaveBeenCalledWith({
-      name: "Produto Teste",
-      description: "Descrição do produto",
-      price: 100,
-      quantity_in_stock: 50,
-      batch: "Lote123",
+    expect(response.product).toEqual(
+      expect.objectContaining({
+        id: expect.any(String),
+        name: "Produto Teste",
+        description: "Um produto de teste",
+        price: 100.5,
+        quantity_in_stock: 10,
+        batch: "Lote A",
+      })
+    );
+
+    // Verifica se realmente foi salvo no repositório
+    const allProducts = await productsRepository.findMany();
+    expect(allProducts).toHaveLength(1);
+    expect(allProducts[0].name).toBe("Produto Teste");
+  });
+
+  it("deve permitir criar múltiplos produtos", async () => {
+    await sut.handle({
+      name: "Produto 1",
+      description: "Desc 1",
+      price: 10,
+      quantity_in_stock: 5,
+      batch: "L1",
     });
 
-    expect(response.product).toEqual(mockProduct);
+    await sut.handle({
+      name: "Produto 2",
+      description: "Desc 2",
+      price: 20,
+      quantity_in_stock: 15,
+      batch: "L2",
+    });
+
+    const products = await productsRepository.findMany();
+    expect(products).toHaveLength(2);
+    expect(products.map(p => p.name)).toEqual(["Produto 1", "Produto 2"]);
   });
 });
