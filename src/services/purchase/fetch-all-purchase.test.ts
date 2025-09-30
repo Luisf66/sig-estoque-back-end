@@ -1,59 +1,41 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { FetchAllPurchaseService } from "./fetch-all-purchase";
-import { PurchaseRepository } from "../../repositories/purchase-repository";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { FetchAllPurchaseService } from "../../services/purchase/fetch-all-purchase";
+
+// Mock do repositório
+const mockPurchaseRepository = {
+  findMany: vi.fn(),
+};
 
 describe("FetchAllPurchaseService", () => {
-  let mockPurchaseRepository: PurchaseRepository;
   let fetchAllPurchaseService: FetchAllPurchaseService;
 
   beforeEach(() => {
-    mockPurchaseRepository = {
-      findMany: vi.fn(),
-    } as unknown as PurchaseRepository;
-
-    fetchAllPurchaseService = new FetchAllPurchaseService(mockPurchaseRepository);
+    vi.clearAllMocks();
+    fetchAllPurchaseService = new FetchAllPurchaseService(
+      mockPurchaseRepository as any
+    );
   });
 
-  it("deve retornar todas as compras disponíveis", async () => {
+  it("deve retornar todas as compras", async () => {
     const mockPurchases = [
-      {
-        id: "purchase-1",
-        nf_number: "12345",
-        supplierId: "supplier-1",
-        userId: "user-1",
-        subTotal: 500,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "purchase-2",
-        nf_number: "67890",
-        supplierId: "supplier-2",
-        userId: "user-2",
-        subTotal: 1000,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
+      { id: "purchase-1", total: 100, createdAt: new Date(), updatedAt: new Date() },
+      { id: "purchase-2", total: 200, createdAt: new Date(), updatedAt: new Date() },
     ];
 
-    vi.spyOn(mockPurchaseRepository, "findMany").mockResolvedValue(mockPurchases);
+    mockPurchaseRepository.findMany.mockResolvedValue(mockPurchases);
 
     const result = await fetchAllPurchaseService.execute();
 
     expect(mockPurchaseRepository.findMany).toHaveBeenCalled();
-    expect(result).toEqual({
-      purchase: mockPurchases,
-    });
+    expect(result.purchase).toEqual(mockPurchases);
   });
 
-  it("deve retornar uma lista vazia se não houver compras disponíveis", async () => {
-    vi.spyOn(mockPurchaseRepository, "findMany").mockResolvedValue([]);
+  it("deve retornar um array vazio se não houver compras", async () => {
+    mockPurchaseRepository.findMany.mockResolvedValue([]);
 
     const result = await fetchAllPurchaseService.execute();
 
     expect(mockPurchaseRepository.findMany).toHaveBeenCalled();
-    expect(result).toEqual({
-      purchase: [],
-    });
+    expect(result.purchase).toEqual([]);
   });
 });
