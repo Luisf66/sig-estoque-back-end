@@ -99,4 +99,26 @@ describe("authenticateUser controller", () => {
 
     await expect(authenticateUser(request, reply)).rejects.toThrowError();
   });
+
+  it("deve relançar erros inesperados", async () => {
+    mockExecute.mockRejectedValueOnce(new Error("Erro inesperado"));
+
+    const request = {
+      body: {
+        email: "test@example.com",
+        password: "123456"
+      }
+    } as unknown as FastifyRequest;
+
+    const reply = {
+      jwtSign: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn()
+    } as unknown as FastifyReply;
+
+    await expect(authenticateUser(request, reply)).rejects.toThrow("Erro inesperado");
+
+    expect(reply.status).not.toHaveBeenCalled();
+  });
+
 });

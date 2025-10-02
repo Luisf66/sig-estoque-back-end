@@ -65,4 +65,20 @@ describe("createEmployee controller", () => {
 
     expect(mockReply.status).not.toHaveBeenCalled();
   });
+  it("deve relançar erros inesperados", async () => {
+    const mockService = {
+      execute: vi.fn().mockRejectedValueOnce(new Error("Unexpected error")),
+    };
+    (makeCreateEmployeeService as vi.Mock).mockReturnValue(mockService);
+
+    const mockRequest = {
+      body: { name: "John Doe", email: "john@example.com", password: "123456" },
+    } as FastifyRequest;
+
+    await expect(
+      createEmployee(mockRequest, mockReply as FastifyReply)
+    ).rejects.toThrow("Unexpected error");
+
+    expect(mockReply.status).not.toHaveBeenCalled();
+  });
 });

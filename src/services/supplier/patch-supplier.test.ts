@@ -82,4 +82,44 @@ describe("PatchSupplierService", () => {
       })
     ).rejects.toBeInstanceOf(NoRecordsFoundError);
   });
+
+  it("deve cobrir métodos auxiliares do InMemorySupplierRepository", async () => {
+    const s1 = await supplierRepository.create({
+      social_name: "Fornecedor Social 1",
+      company_name: "Empresa 1 LTDA",
+      phone_number: "1111111111",
+      cnpj: "11111111111111",
+    });
+
+    const s2 = await supplierRepository.create({
+      social_name: "Fornecedor Social 2",
+      company_name: "Empresa 2 LTDA",
+      phone_number: "2222222222",
+      cnpj: "22222222222222",
+    });
+
+    // findMany
+    const all = await supplierRepository.findMany();
+    expect(all.length).toBe(2);
+
+    // findManyByCompanyName
+    const byCompany = await supplierRepository.findManyByCompanyName("Empresa 1");
+    expect(byCompany).toContainEqual(s1);
+
+    // findManyBySocialName
+    const bySocial = await supplierRepository.findManyBySocialName("Social 2");
+    expect(bySocial).toContainEqual(s2);
+
+    // findById
+    const found = await supplierRepository.findById(s2.id);
+    expect(found).toEqual(s2);
+
+    // patch
+    const patched = await supplierRepository.patch(s1.id, { phone_number: "9999999999" });
+    expect(patched?.phone_number).toBe("9999999999");
+
+    // delete
+    const deleted = await supplierRepository.delete(s1.id);
+    expect(deleted?.id).toBe(s1.id);
+  });
 });

@@ -86,4 +86,28 @@ describe("createManager controller", () => {
 
     expect(mockReply.status).not.toHaveBeenCalled();
   });
+  it("deve relançar erros inesperados", async () => {
+    const mockRequest = {
+      body: {
+        name: "Admin",
+        email: "admin@example.com",
+        password: "securepass",
+      },
+    } as unknown as FastifyRequest;
+
+    const mockReply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    } as unknown as FastifyReply;
+
+    const mockService = {
+      execute: vi.fn().mockRejectedValue(new Error("Erro inesperado")),
+    };
+
+    (makeCreateManagerService as unknown as vi.Mock).mockReturnValue(mockService);
+
+    await expect(createManager(mockRequest, mockReply)).rejects.toThrow("Erro inesperado");
+
+    expect(mockReply.status).not.toHaveBeenCalled();
+  });
 });
