@@ -16,6 +16,7 @@ export default defineConfig({
             'src/http/routes/**',
             'src/lib/**',
             'src/repositories/prisma/**',
+            'src/repositories/**',
             'src/@types/**',
             'src/services/factories/**',
             'vite.config.mts',

@@ -1,21 +1,21 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { DeleteUserService } from "./delete-user";
 import { UserRepository } from "../../repositories/user-repository";
-import { User } from "@prisma/client";
+import { User, ROLE } from "@prisma/client";
 
 class InMemoryUserRepository implements UserRepository {
   public items: User[] = [];
 
   async create(data: any) {
-    const user = {
+    const user: User = {
       id: crypto.randomUUID(),
       name: data.name,
       email: data.email,
       password_hash: data.password_hash,
+      role: data.role ?? ROLE.EMPLOYEE, // 👈 Adiciona a role obrigatória
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as User;
-
+    };
     this.items.push(user);
     return user;
   }
@@ -39,6 +39,7 @@ class InMemoryUserRepository implements UserRepository {
     return deleted;
   }
 
+  // 👇 Corrigido para não conflitar com a interface original
   async update(id: string, data: Partial<User>) {
     const index = this.items.findIndex((item) => item.id === id);
     if (index === -1) return null;
@@ -61,12 +62,13 @@ describe("DeleteUserService", () => {
       name: "Usuário Teste",
       email: "teste@example.com",
       password_hash: "hash_senha",
+      role: ROLE.ADMIN,
     });
 
     const { user } = await sut.execute({ id: createdUser.id });
 
     expect(user).not.toBeNull();
-    expect(user.id).toBe(createdUser.id);
+    expect(user?.id).toBe(createdUser.id);
 
     const userInRepo = await userRepository.findById(createdUser.id);
     expect(userInRepo).toBeNull();
@@ -74,7 +76,63 @@ describe("DeleteUserService", () => {
 
   it("deve retornar null ao tentar deletar um usuário inexistente", async () => {
     const { user } = await sut.execute({ id: "id-invalido" });
-
     expect(user).toBeNull();
   });
+
+  it("deve encontrar usuário pelo email antes de deletar", async () => {
+    const createdUser = await userRepository.create({
+      name: "Busca Teste",
+      email: "busca@example.com",
+      password_hash: "senha",
+      role: ROLE.USER,
+    });
+
+    const found = await userRepository.findByEmail(createdUser.email);
+    expect(found).not.toBeNull();
+    expect(found?.id).toBe(createdUser.id);
+  });
+
+  it("deve retornar null ao tentar atualizar usuário inexistente", async () => {
+    const result = await userRepository.update("id-invalido", { name: "Novo Nome" });
+    expect(result).toBeNull();
+  });
+
+  it("deve atualizar dados do usuário corretamente", async () => {
+    const createdUser = await userRepository.create({
+      name: "Atualizar Teste",
+      email: "atualiza@example.com",
+      password_hash: "hash",
+      role: ROLE.USER,
+    });
+
+    const updated = await userRepository.update(createdUser.id, {
+      name: "Nome Atualizado",
+    });
+
+    expect(updated?.name).toBe("Nome Atualizado");
+    expect(updated?.updatedAt).toBeInstanceOf(Date);
+  });
+  
+  it("deve retornar todos os usuários com findMany", async () => {
+    await userRepository.create({
+      name: "Usuário 1",
+      email: "user1@example.com",
+      password_hash: "hash1",
+      role: ROLE.EMPLOYEE,
+    });
+
+    await userRepository.create({
+      name: "Usuário 2",
+      email: "user2@example.com",
+      password_hash: "hash2",
+      role: ROLE.MANAGER,
+    });
+
+    const users = await userRepository.findMany();
+
+    expect(users).toHaveLength(2);
+    expect(users[0].name).toBe("Usuário 1");
+    expect(users[1].name).toBe("Usuário 2");
+  });
+
 });
