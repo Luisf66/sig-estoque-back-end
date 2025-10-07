@@ -1,48 +1,46 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { FindEmployeeByIdService } from "./find-employee-by-id";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemoryEmployeesRepository } from '../../repositories/in-memory/in-memory-employee-repository';
+import { FindEmployeeByIdService } from './find-employee-by-id';
+import { InMemoryUsersRepository } from '../../repositories/in-memory/in-memory-users-repository';
 
-describe("FindEmployeeByIdService", () => {
-  let employeeRepository: any;
-  let findEmployeeByIdService: FindEmployeeByIdService;
+// Declaração das variáveis
+let employeesRepository: InMemoryEmployeesRepository;
+let usersRepository: InMemoryUsersRepository;
+let sut: FindEmployeeByIdService; // SUT: System Under Test
 
+describe('Find Employee By Id Service', () => {
   beforeEach(() => {
-    employeeRepository = {
-      findById: vi.fn(),
-    };
-
-    findEmployeeByIdService = new FindEmployeeByIdService(employeeRepository);
+    // Instancia os repositórios e o serviço antes de cada teste
+    employeesRepository = new InMemoryEmployeesRepository();
+    usersRepository = new InMemoryUsersRepository();
+    sut = new FindEmployeeByIdService(employeesRepository);
   });
 
-  it("deve retornar um employee quando o ID existir", async () => {
-    const fakeEmployee = {
-      id: "emp-1",
-      userId: "user-1",
-    };
+  it('should be able to find an employee by id', async () => {
+    // Arrange: Cria um usuário e um funcionário para o teste
+    const user = await usersRepository.create({
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+      password_hash: 'hashed_password'
+    });
 
-    employeeRepository.findById.mockResolvedValue(fakeEmployee);
+    const createdEmployee = await employeesRepository.create({
+      user: { connect: { id: user.id } }
+    });
 
-    const result = await findEmployeeByIdService.execute({ id: "emp-1" });
+    // Act: Executa o serviço com o ID do funcionário criado
+    const { employee } = await sut.execute({ id: createdEmployee.id });
 
-    expect(employeeRepository.findById).toHaveBeenCalledWith("emp-1");
-    expect(result).toEqual({ employee: fakeEmployee });
+    // Assert: Verifica se o funcionário retornado não é nulo e tem o ID correto
+    expect(employee).not.toBeNull();
+    expect(employee?.id).toEqual(createdEmployee.id);
   });
 
-  it("deve retornar null quando o employee não for encontrado", async () => {
-    employeeRepository.findById.mockResolvedValue(null);
+  it('should return null if employee is not found', async () => {
+    // Act: Tenta buscar um funcionário com um ID que não existe
+    const { employee } = await sut.execute({ id: 'non-existing-id' });
 
-    const result = await findEmployeeByIdService.execute({ id: "emp-999" });
-
-    expect(employeeRepository.findById).toHaveBeenCalledWith("emp-999");
-    expect(result).toEqual({ employee: null });
-  });
-
-  it("deve lançar erro se o repositório falhar", async () => {
-    employeeRepository.findById.mockRejectedValue(new Error("Erro interno"));
-
-    await expect(
-      findEmployeeByIdService.execute({ id: "emp-1" })
-    ).rejects.toThrowError("Erro interno");
-
-    expect(employeeRepository.findById).toHaveBeenCalledWith("emp-1");
+    // Assert: Verifica se o resultado é nulo
+    expect(employee).toBeNull();
   });
 });

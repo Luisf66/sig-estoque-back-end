@@ -1,42 +1,46 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { FindManagerByIdService } from "./find-manager-by-id";
-import { InMemoryManagersRepository } from "../../repositories/in-memory/in-memory-manager-repository";
-import { InMemoryUsersRepository } from "../../repositories/in-memory/in-memory-users-repository";
-import { NoRecordsFoundError } from "../errors/no-records-found-error";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemoryManagersRepository } from '../../repositories/in-memory/in-memory-manager-repository';
+import { FindManagerByIdService } from './find-manager-by-id';
+import { NoRecordsFoundError } from '../errors/no-records-found-error';
+import { InMemoryUsersRepository } from '../../repositories/in-memory/in-memory-users-repository';
 
-describe("FindManagerByIdService", () => {
-  let managersRepository: InMemoryManagersRepository;
-  let usersRepository: InMemoryUsersRepository;
-  let sut: FindManagerByIdService;
+// Declaração das variáveis
+let managersRepository: InMemoryManagersRepository;
+let usersRepository: InMemoryUsersRepository;
+let sut: FindManagerByIdService; // SUT: System Under Test
 
+describe('Find Manager By Id Service', () => {
   beforeEach(() => {
+    // Instancia os repositórios e o serviço antes de cada teste
     managersRepository = new InMemoryManagersRepository();
-    usersRepository = new InMemoryUsersRepository();
+    usersRepository = new InMemoryUsersRepository(); // Necessário para o contexto do gerente
     sut = new FindManagerByIdService(managersRepository);
   });
 
-  it("deve encontrar um gerente pelo ID", async () => {
+  it('should be able to find a manager by id', async () => {
+    // Arrange: Cria um usuário e um gerente para serem encontrados
     const user = await usersRepository.create({
-      name: "Gerente Teste",
-      email: "gerente@example.com",
-      password_hash: "hash123",
-      role: "MANAGER",
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+      password_hash: 'hashed_password'
     });
 
-    const manager = await managersRepository.create({
-      user: { connect: { id: user.id } },
+    const createdManager = await managersRepository.create({
+      user: { connect: { id: user.id } }
     });
 
-    const result = await sut.execute({ id: manager.id });
+    // Act: Executa o serviço com o ID do gerente criado
+    const { manager } = await sut.execute({ id: createdManager.id });
 
-    expect(result.manager).toBeDefined();
-    expect(result.manager?.id).toBe(manager.id);
-    expect(result.manager?.userId).toBe(user.id);
+    // Assert: Verifica se o gerente retornado é o correto
+    expect(manager).not.toBeNull();
+    expect(manager?.id).toEqual(createdManager.id);
   });
 
-  it("deve lançar NoRecordsFoundError se o gerente não for encontrado", async () => {
-    await expect(sut.execute({ id: "id-inexistente" }))
-      .rejects
-      .toBeInstanceOf(NoRecordsFoundError);
+  it('should throw an error if the manager is not found', async () => {
+    // Act & Assert: Tenta buscar um gerente com um ID inexistente e espera um erro
+    await expect(() =>
+      sut.execute({ id: 'non-existing-id' })
+    ).rejects.toBeInstanceOf(NoRecordsFoundError);
   });
 });

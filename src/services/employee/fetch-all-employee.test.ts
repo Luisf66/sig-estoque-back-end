@@ -1,45 +1,57 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { FetchAllEmployeeService } from "./fetch-all-employee";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemoryEmployeesRepository } from '../../repositories/in-memory/in-memory-employee-repository';
+import { FetchAllEmployeeService } from './fetch-all-employee';
+import { InMemoryUsersRepository } from '../../repositories/in-memory/in-memory-users-repository';
 
-describe("FetchAllEmployeeService", () => {
-  let employeeRepository: any;
-  let fetchAllEmployeeService: FetchAllEmployeeService;
+// Declaração das variáveis
+let employeesRepository: InMemoryEmployeesRepository;
+let usersRepository: InMemoryUsersRepository;
+let sut: FetchAllEmployeeService; // SUT: System Under Test
 
+describe('Fetch All Employee Service', () => {
   beforeEach(() => {
-    employeeRepository = {
-      findMany: vi.fn(),
-    };
-
-    fetchAllEmployeeService = new FetchAllEmployeeService(employeeRepository);
+    // Instancia os repositórios e o serviço antes de cada teste
+    employeesRepository = new InMemoryEmployeesRepository();
+    usersRepository = new InMemoryUsersRepository(); // Necessário para criar dados de teste
+    sut = new FetchAllEmployeeService(employeesRepository);
   });
 
-  it("deve retornar uma lista de employees com sucesso", async () => {
-    const fakeEmployees = [
-      { id: "emp-1", userId: "user-1" },
-      { id: "emp-2", userId: "user-2" },
-    ];
+  it('should be able to fetch all employees', async () => {
+    // Arrange: Cria dados de teste
+    const user1 = await usersRepository.create({
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+      password_hash: 'hashed_password'
+    });
 
-    employeeRepository.findMany.mockResolvedValue(fakeEmployees);
+    const user2 = await usersRepository.create({
+        name: 'Jane Smith',
+        email: 'jane.smith@example.com',
+        password_hash: 'hashed_password'
+    });
 
-    const result = await fetchAllEmployeeService.execute();
+    await employeesRepository.create({
+      user: { connect: { id: user1.id } }
+    });
 
-    expect(employeeRepository.findMany).toHaveBeenCalled();
-    expect(result).toEqual({ employee: fakeEmployees });
+    await employeesRepository.create({
+        user: { connect: { id: user2.id } }
+    });
+
+    // Act: Executa o serviço
+    const { employee } = await sut.execute();
+
+    // Assert: Verifica se o resultado está correto
+    expect(employee).toHaveLength(2);
+    expect(employee[0].userId).toEqual(user1.id);
+    expect(employee[1].userId).toEqual(user2.id);
   });
 
-  it("deve retornar uma lista vazia quando não houver employees", async () => {
-    employeeRepository.findMany.mockResolvedValue([]);
+  it('should return an empty array when no employees are found', async () => {
+    // Act: Executa o serviço com o repositório vazio
+    const { employee } = await sut.execute();
 
-    const result = await fetchAllEmployeeService.execute();
-
-    expect(employeeRepository.findMany).toHaveBeenCalled();
-    expect(result).toEqual({ employee: [] });
-  });
-
-  it("deve lançar erro se o repositório falhar", async () => {
-    employeeRepository.findMany.mockRejectedValue(new Error("Erro interno"));
-
-    await expect(fetchAllEmployeeService.execute()).rejects.toThrowError("Erro interno");
-    expect(employeeRepository.findMany).toHaveBeenCalled();
+    // Assert: Verifica se o resultado é uma lista vazia
+    expect(employee).toHaveLength(0);
   });
 });

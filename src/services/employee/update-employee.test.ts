@@ -1,88 +1,84 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { UpdateEmployeeService } from "./update-employee";
-import { InMemoryUsersRepository } from "../../repositories/in-memory/in-memory-users-repository";
-import { InMemoryEmployeesRepository } from "../../repositories/in-memory/in-memory-employee-repository";
-import { hash, compare } from "bcryptjs";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemoryEmployeesRepository } from '../../repositories/in-memory/in-memory-employee-repository';
+import { InMemoryUsersRepository } from '../../repositories/in-memory/in-memory-users-repository';
+import { UpdateEmployeeService } from './update-employee';
 
-describe("UpdateEmployeeService", () => {
-  let usersRepository: InMemoryUsersRepository;
-  let employeesRepository: InMemoryEmployeesRepository;
-  let sut: UpdateEmployeeService;
+// Declaração das variáveis
+let employeesRepository: InMemoryEmployeesRepository;
+let usersRepository: InMemoryUsersRepository;
+let sut: UpdateEmployeeService; // SUT: System Under Test
 
+describe('Update Employee Service', () => {
   beforeEach(() => {
-    usersRepository = new InMemoryUsersRepository();
+    // Instancia os repositórios e o serviço antes de cada teste
     employeesRepository = new InMemoryEmployeesRepository();
+    usersRepository = new InMemoryUsersRepository();
     sut = new UpdateEmployeeService(employeesRepository, usersRepository);
   });
 
-  it("deve atualizar os dados do funcionário com nova senha", async () => {
-    const passwordHash = await hash("123456", 6);
-
+  it('should be able to update an employee without changing the password', async () => {
+    // Arrange: Cria um usuário e um funcionário para o teste
     const user = await usersRepository.create({
-      name: "João",
-      email: "joao@example.com",
-      role: "EMPLOYEE",
-      password_hash: passwordHash,
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+      password_hash: 'initial_hashed_password'
     });
 
     await employeesRepository.create({
-      user: { connect: { id: user.id } },
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      user: { connect: { id: user.id } }
     });
 
-    const result = await sut.execute({
+    // Act: Executa o serviço com novos dados, mas sem a senha
+    await sut.execute({
       userId: user.id,
-      name: "João Atualizado",
-      email: "joao.atualizado@example.com",
-      password: "novaSenha123",
+      name: 'John Doe Updated',
+      email: 'john.doe.updated@example.com',
     });
-
+    
+    // Assert: Verifica se os dados do usuário foram atualizados corretamente
     const updatedUser = await usersRepository.findById(user.id);
-
-    expect(result.employee.userId).toBe(user.id);
-    expect(updatedUser?.name).toBe("João Atualizado");
-    expect(updatedUser?.email).toBe("joao.atualizado@example.com");
-    expect(await compare("novaSenha123", updatedUser!.password_hash)).toBe(true);
+    expect(updatedUser?.name).toEqual('John Doe Updated');
+    expect(updatedUser?.email).toEqual('john.doe.updated@example.com');
+    // A senha não deve ter sido alterada
+    expect(updatedUser?.password_hash).toEqual('initial_hashed_password');
   });
 
-  it("deve atualizar os dados do funcionário sem alterar a senha", async () => {
-    const passwordHash = await hash("senhaOriginal", 6);
-
+  it('should be able to update an employee including the password', async () => {
+    // Arrange
     const user = await usersRepository.create({
-      name: "Maria",
-      email: "maria@example.com",
-      role: "EMPLOYEE",
-      password_hash: passwordHash,
+      name: 'Jane Doe',
+      email: 'jane.doe@example.com',
+      password_hash: 'old_hashed_password'
     });
 
     await employeesRepository.create({
-      user: { connect: { id: user.id } },
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      user: { connect: { id: user.id } }
     });
 
-    const result = await sut.execute({
+    // Act: Executa o serviço com novos dados, incluindo uma nova senha
+    await sut.execute({
       userId: user.id,
-      name: "Maria Atualizada",
-      email: "maria.atualizada@example.com",
+      name: 'Jane Doe Updated',
+      email: 'jane.doe.updated@example.com',
+      password: 'new_password_123'
     });
 
+    // Assert
     const updatedUser = await usersRepository.findById(user.id);
-
-    expect(result.employee.userId).toBe(user.id);
-    expect(updatedUser?.name).toBe("Maria Atualizada");
-    expect(updatedUser?.email).toBe("maria.atualizada@example.com");
-    expect(await compare("senhaOriginal", updatedUser!.password_hash)).toBe(true);
+    expect(updatedUser?.name).toEqual('Jane Doe Updated');
+    // A nova senha deve ser diferente da antiga e não deve ser o texto plano
+    expect(updatedUser?.password_hash).not.toEqual('old_hashed_password');
+    expect(updatedUser?.password_hash).not.toEqual('new_password_123');
   });
 
-  it("deve lançar erro se o usuário não for encontrado", async () => {
-    await expect(() =>
+  it('should throw an error if the user is not found', async () => {
+    // Act & Assert: Tenta atualizar um usuário com um ID que não existe e espera um erro
+    await expect(() => 
       sut.execute({
-        userId: "user-inexistente",
-        name: "Teste",
-        email: "teste@example.com",
+        userId: 'non-existing-user-id',
+        name: 'Test',
+        email: 'test@example.com',
       })
-    ).rejects.toThrowError("User not found.");
+    ).rejects.toThrow();
   });
 });

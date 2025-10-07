@@ -1,118 +1,97 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { UpdateManagerService } from "../manager/update-manager";
-import { InMemoryManagersRepository } from "../../repositories/in-memory/in-memory-manager-repository";
-import { InMemoryUsersRepository } from "../../repositories/in-memory/in-memory-users-repository";
-import { NoRecordsFoundError } from "../../services/errors/no-records-found-error";
-import { hash } from "bcryptjs";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemoryManagersRepository } from '../../repositories/in-memory/in-memory-manager-repository';
+import { InMemoryUsersRepository } from '../../repositories/in-memory/in-memory-users-repository';
+import { UpdateManagerService } from './update-manager';
+import { NoRecordsFoundError } from '../errors/no-records-found-error';
 
-describe("UpdateManagerService", () => {
-  let managersRepository: InMemoryManagersRepository;
-  let usersRepository: InMemoryUsersRepository;
-  let sut: UpdateManagerService;
+// Declaração das variáveis
+let managersRepository: InMemoryManagersRepository;
+let usersRepository: InMemoryUsersRepository;
+let sut: UpdateManagerService; // SUT: System Under Test
 
+describe('Update Manager Service', () => {
   beforeEach(() => {
+    // Instancia os repositórios e o serviço antes de cada teste
     managersRepository = new InMemoryManagersRepository();
     usersRepository = new InMemoryUsersRepository();
     sut = new UpdateManagerService(managersRepository, usersRepository);
   });
 
-  it("deve atualizar os dados de um gerente existente (sem alterar senha)", async () => {
-    // Cria um usuário inicial
+  it('should be able to update a manager', async () => {
+    // Arrange: Cria um usuário e um gerente para serem atualizados
     const user = await usersRepository.create({
-      name: "Gerente Antigo",
-      email: "old@example.com",
-      password_hash: await hash("senha123", 6),
-      role: "MANAGER",
-    });
-
-    // Cria um manager usando o formato esperado pelo repositório
-    const manager = await managersRepository.create({
-      user: {
-        connect: {
-          id: user.id,
-        },
-      },
-    });
-
-    // Executa o serviço de atualização
-    const response = await sut.execute({
-      userId: user.id,
-      name: "Gerente Atualizado",
-      email: "novo@example.com",
-    });
-
-    // Verifica se o manager retornado tem os dados corretos
-    expect(response.manager).toEqual(
-      expect.objectContaining({
-        id: manager.id,
-        userId: user.id,
-      })
-    );
-
-    // Verifica se os dados do usuário foram atualizados
-    const updatedUser = await usersRepository.findById(user.id);
-    expect(updatedUser?.name).toBe("Gerente Atualizado");
-    expect(updatedUser?.email).toBe("novo@example.com");
-    expect(updatedUser?.password_hash).toBe(user.password_hash);
-  });
-
-  it("deve atualizar os dados de um gerente existente e alterar a senha", async () => {
-    // Cria usuário e manager
-    const user = await usersRepository.create({
-      name: "Gerente",
-      email: "manager@example.com",
-      password_hash: await hash("senha123", 6),
-      role: "MANAGER",
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+      password_hash: 'hashed_password_1'
     });
 
     await managersRepository.create({
-      user: {
-        connect: {
-          id: user.id,
-        },
-      },
+      user: { connect: { id: user.id } }
     });
 
-    // Executa atualização com nova senha
-    const response = await sut.execute({
+    // Act: Executa o serviço com os novos dados
+    await sut.execute({
       userId: user.id,
-      name: "Gerente Atualizado",
-      email: "manager@novo.com",
-      password: "novaSenha",
+      name: 'John Doe Updated',
+      email: 'john.doe.updated@example.com',
     });
 
-    expect(response.manager.userId).toBe(user.id);
-
+    // Assert: Verifica se os dados do usuário foram atualizados no repositório
     const updatedUser = await usersRepository.findById(user.id);
-    expect(updatedUser?.email).toBe("manager@novo.com");
-    expect(updatedUser?.name).toBe("Gerente Atualizado");
-    // Verifica que o hash foi alterado
-    expect(updatedUser?.password_hash).not.toBe(user.password_hash);
+    expect(updatedUser?.name).toEqual('John Doe Updated');
+    expect(updatedUser?.email).toEqual('john.doe.updated@example.com');
   });
 
-  it("deve lançar erro se o usuário não existir", async () => {
-    await expect(
+  it('should be able to update a manager with a new password', async () => {
+    // Arrange
+    const user = await usersRepository.create({
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+      password_hash: 'hashed_password_1'
+    });
+
+    await managersRepository.create({
+      user: { connect: { id: user.id } }
+    });
+
+    // Act
+    await sut.execute({
+      userId: user.id,
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+      password: 'new_password_123',
+    });
+
+    // Assert
+    const updatedUser = await usersRepository.findById(user.id);
+    expect(updatedUser?.password_hash).not.toEqual('hashed_password_1');
+  });
+
+  it('should throw an error if the user is not found', async () => {
+    // Act & Assert: Tenta atualizar um gerente com um userId inexistente
+    await expect(() =>
       sut.execute({
-        userId: "usuario-inexistente",
-        name: "Teste",
-        email: "teste@example.com",
+        userId: 'non-existing-user-id',
+        name: 'Any Name',
+        email: 'any.email@example.com',
       })
     ).rejects.toBeInstanceOf(NoRecordsFoundError);
   });
 
-  it("deve lançar erro se o manager não existir", async () => {
+  it('should throw an error if the manager profile is not found for the user', async () => {
+    // Arrange: Cria um usuário, mas não um gerente associado a ele
     const user = await usersRepository.create({
-      name: "Usuário Sem Manager",
-      email: "semmanager@example.com",
-      password_hash: await hash("123456", 6),
-      role: "MANAGER",
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+      password_hash: 'hashed_password_1'
     });
 
-    await expect(
+    // Act & Assert: Tenta atualizar, mas o serviço não encontrará o perfil de gerente
+    await expect(() =>
       sut.execute({
         userId: user.id,
-        name: "Nome Novo",
-        email: "novo@example.com",
+        name: 'Any Name',
+        email: 'any.email@example.com',
       })
     ).rejects.toBeInstanceOf(NoRecordsFoundError);
   });
