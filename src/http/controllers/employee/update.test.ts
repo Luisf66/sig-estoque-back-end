@@ -1,96 +1,98 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { FastifyReply, FastifyRequest } from "fastify";
-import { updateEmployee } from "./update";
-import { makeUpdateEmployeeService } from "../../../services/factories/employee/make-update-employee-service";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { updateEmployee } from './update'; // Ajuste o caminho conforme sua estrutura
 
-vi.mock("../../../services/factories/employee/make-update-employee-service");
+// Mock da factory que cria o service
+const updateEmployeeServiceMock = {
+  execute: vi.fn(),
+};
 
-describe("updateEmployee controller", () => {
-  it("deve atualizar um funcionário com sucesso", async () => {
-    const mockRequest = {
-      body: {
-        userId: "123",
-        name: "John Doe",
-        email: "johndoe@example.com",
-        password: "password123",
-      },
-    } as unknown as FastifyRequest;
+vi.mock('../../../services/factories/employee/make-update-employee-service', () => {
+  return {
+    makeUpdateEmployeeService: () => updateEmployeeServiceMock,
+  };
+});
 
-    const mockReply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
+describe('Update Employee Controller', () => {
+  let request: Partial<FastifyRequest>;
+  let reply: Partial<FastifyReply>;
 
-    const mockService = {
-      execute: vi.fn().mockResolvedValue(undefined),
+  const mockEmployeeData = {
+    userId: 'user-1',
+    name: 'John Doe Updated',
+    email: 'john.doe.updated@example.com',
+    password: 'newpassword123',
+  };
+
+  beforeEach(() => {
+    // Mock dos objetos de requisição e resposta do Fastify
+    request = {
+      body: mockEmployeeData,
     };
 
-    (makeUpdateEmployeeService as unknown as vi.Mock).mockReturnValue(mockService);
-
-    await updateEmployee(mockRequest, mockReply);
-
-    expect(mockService.execute).toHaveBeenCalledWith({
-      userId: "123",
-      name: "John Doe",
-      email: "johndoe@example.com",
-      password: "password123",
-    });
-
-    expect(mockReply.status).toHaveBeenCalledWith(200);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      message: "Employee successfully updated.",
-    });
-  });
-
-  it("deve retornar erro se os dados forem inválidos", async () => {
-    const mockRequest = {
-      body: {
-        userId: "123",
-        name: "", // inválido
-        email: "invalid-email", // inválido
-        password: "123", // inválido
-      },
-    } as unknown as FastifyRequest;
-
-    const mockReply = {
+    reply = {
       status: vi.fn().mockReturnThis(),
       send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await updateEmployee(mockRequest, mockReply);
-
-    expect(mockReply.status).toHaveBeenCalledWith(500);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      message: "Internal Server Error",
-    });
-  });
-
-  it("deve retornar erro 500 se o serviço lançar exceção", async () => {
-    const mockRequest = {
-      body: {
-        userId: "123",
-        name: "John Doe",
-        email: "johndoe@example.com",
-        password: "password123",
-      },
-    } as unknown as FastifyRequest;
-
-    const mockReply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    const mockService = {
-      execute: vi.fn().mockRejectedValue(new Error("DB error")),
     };
+  });
 
-    (makeUpdateEmployeeService as unknown as vi.Mock).mockReturnValue(mockService);
+  afterEach(() => {
+    // Limpa os mocks após cada teste
+    vi.clearAllMocks();
+  });
 
-    await updateEmployee(mockRequest, mockReply);
+  it('should update an employee successfully and return status 200', async () => {
+    // Arrange: Configura o service para resolver com sucesso
+    updateEmployeeServiceMock.execute.mockResolvedValue(undefined);
 
-    expect(mockReply.status).toHaveBeenCalledWith(500);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      message: "Internal Server Error",
-    });
+    // Act: Executa a função do controller
+    await updateEmployee(request as FastifyRequest, reply as FastifyReply);
+
+    // Assert: Verifica se o controller se comportou como esperado
+    expect(updateEmployeeServiceMock.execute).toHaveBeenCalledWith(mockEmployeeData);
+    expect(reply.status).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({ message: 'Employee successfully updated.' });
+  });
+
+  it('should handle optional password field correctly', async () => {
+    // Arrange
+    const dataWithoutPassword = { ...mockEmployeeData };
+    delete dataWithoutPassword.password;
+    request.body = dataWithoutPassword;
+    updateEmployeeServiceMock.execute.mockResolvedValue(undefined);
+
+    // Act
+    await updateEmployee(request as FastifyRequest, reply as FastifyReply);
+
+    // Assert
+    expect(updateEmployeeServiceMock.execute).toHaveBeenCalledWith(dataWithoutPassword);
+    expect(reply.status).toHaveBeenCalledWith(200);
+  });
+
+  it('should return status 500 when the service throws an error', async () => {
+    // Arrange: Simula um erro inesperado vindo do service
+    const serviceError = new Error('Database connection failed');
+    updateEmployeeServiceMock.execute.mockRejectedValue(serviceError);
+
+    // Act
+    await updateEmployee(request as FastifyRequest, reply as FastifyReply);
+
+    // Assert
+    expect(reply.status).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({ message: 'Internal Server Error' });
+  });
+
+  it('should throw an error if body is invalid', async () => {
+    // Arrange: Simula uma requisição com o corpo inválido (sem 'name')
+    const invalidData = { ...mockEmployeeData };
+    delete (invalidData as Partial<typeof invalidData>).name;
+    request.body = invalidData;
+
+    // Act & Assert: A validação do Zod deve falhar e o controller deve pegar o erro
+    await updateEmployee(request as FastifyRequest, reply as FastifyReply);
+    
+    // O erro do Zod será pego pelo catch genérico
+    expect(reply.status).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({ message: 'Internal Server Error' });
   });
 });

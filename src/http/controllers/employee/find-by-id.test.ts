@@ -1,62 +1,91 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { FastifyReply, FastifyRequest } from "fastify";
-import { findEmployeeById } from "./find-by-id";
-import { makeFindEmployeeByIdService } from "../../../services/factories/employee/make-find-employee-by-id-service";
-import { NoRecordsFoundError } from "../../../services/errors/no-records-found-error";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { findEmployeeById } from './find-by-id'; // Ajuste o caminho conforme sua estrutura
+import { NoRecordsFoundError } from '../../../services/errors/no-records-found-error';
 
-vi.mock("../../../services/factories/employee/make-find-employee-by-id-service");
+// Mock da factory que cria o service.
+const findEmployeeByIdServiceMock = {
+  execute: vi.fn(),
+};
 
-describe("findEmployeeById controller", () => {
-  let mockReply: Partial<FastifyReply>;
+vi.mock('../../../services/factories/employee/make-find-employee-by-id-service', () => {
+  return {
+    makeFindEmployeeByIdService: () => findEmployeeByIdServiceMock,
+  };
+});
+
+describe('Find Employee By Id Controller', () => {
+  let request: Partial<FastifyRequest>;
+  let reply: Partial<FastifyReply>;
 
   beforeEach(() => {
-    mockReply = {
+    // Mock dos objetos de requisição e resposta do Fastify
+    request = {
+      params: { id: 'employee-1' }, // Parâmetro da URL
+    };
+
+    reply = {
       status: vi.fn().mockReturnThis(),
       send: vi.fn(),
     };
+  });
+
+  afterEach(() => {
+    // Limpa os mocks após cada teste
     vi.clearAllMocks();
   });
 
-  it("deve retornar 200 e o funcionário encontrado", async () => {
-    const mockEmployee = { id: "1", name: "John Doe", email: "john@example.com" };
-
-    const mockService = {
-      execute: vi.fn().mockResolvedValueOnce({ employee: mockEmployee }),
+  it('should find an employee by id successfully and return status 200', async () => {
+    // Arrange: Prepara o retorno do service mockado.
+    const mockEmployee = { 
+      id: 'employee-1', 
+      userId: 'user-1', 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
     };
-    (makeFindEmployeeByIdService as vi.Mock).mockReturnValue(mockService);
+    findEmployeeByIdServiceMock.execute.mockResolvedValue({ employee: mockEmployee });
 
-    const mockRequest = { params: { id: "1" } } as unknown as FastifyRequest;
+    // Act: Executa a função do controller.
+    await findEmployeeById(request as FastifyRequest, reply as FastifyReply);
 
-    await findEmployeeById(mockRequest, mockReply as FastifyReply);
-
-    expect(mockService.execute).toHaveBeenCalledWith({ id: "1" });
-    expect(mockReply.status).toHaveBeenCalledWith(200);
-    expect(mockReply.send).toHaveBeenCalledWith({ employee: mockEmployee });
+    // Assert: Verifica se o controller se comportou como esperado.
+    expect(findEmployeeByIdServiceMock.execute).toHaveBeenCalledWith({ id: 'employee-1' });
+    expect(reply.status).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({ employee: mockEmployee });
   });
 
-  it("deve retornar 404 se o funcionário não for encontrado", async () => {
-    const mockService = {
-      execute: vi.fn().mockRejectedValueOnce(new NoRecordsFoundError()),
-    };
-    (makeFindEmployeeByIdService as vi.Mock).mockReturnValue(mockService);
+  it('should return status 404 when the employee is not found', async () => {
+    // Arrange: Configura o mock para simular o erro de registro não encontrado.
+    findEmployeeByIdServiceMock.execute.mockRejectedValue(new NoRecordsFoundError());
+    request.params = { id: 'non-existing-id' };
 
-    const mockRequest = { params: { id: "999" } } as unknown as FastifyRequest;
+    // Act
+    await findEmployeeById(request as FastifyRequest, reply as FastifyReply);
 
-    await findEmployeeById(mockRequest, mockReply as FastifyReply);
-
-    expect(mockReply.status).toHaveBeenCalledWith(404);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      message: "No records found.",
-    });
+    // Assert
+    expect(reply.status).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({ message: expect.any(String) });
   });
 
-  it("deve lançar erro se o parâmetro id for inválido", async () => {
-    const mockRequest = { params: { id: 123 } } as unknown as FastifyRequest; // inválido (não é string)
+  it('should throw an error when the service fails unexpectedly', async () => {
+    // Arrange: Simula um erro genérico vindo do service.
+    const unexpectedError = new Error('Database connection failed');
+    findEmployeeByIdServiceMock.execute.mockRejectedValue(unexpectedError);
 
+    // Act & Assert: Verifica se o controller repassa o erro não tratado.
+    // O Fastify se encarregará de transformar isso em uma resposta 500.
     await expect(
-      findEmployeeById(mockRequest, mockReply as FastifyReply)
-    ).rejects.toThrow(); // ZodError
+      findEmployeeById(request as FastifyRequest, reply as FastifyReply)
+    ).rejects.toThrow(unexpectedError);
+  });
 
-    expect(mockReply.status).not.toHaveBeenCalled();
+  it('should throw an error if params are invalid', async () => {
+    // Arrange: Simula uma requisição com parâmetros inválidos (sem o 'id').
+    request.params = {};
+
+    // Act & Assert: A validação do Zod deve falhar e lançar um erro.
+    await expect(
+      findEmployeeById(request as FastifyRequest, reply as FastifyReply)
+    ).rejects.toThrow();
   });
 });

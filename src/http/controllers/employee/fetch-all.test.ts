@@ -1,54 +1,65 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { FastifyReply, FastifyRequest } from "fastify";
-import { fetchAllEmployees } from "./fetch-all";
-import { makeFetchAllEmployeesService } from "../../../services/factories/employee/make-fetch-all-employees-service";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { fetchAllEmployees } from './fetch-all'; // Ajuste o caminho conforme sua estrutura
 
-vi.mock("../../../services/factories/employee/make-fetch-all-employees-service");
+// Mock da factory que cria o service.
+// Isso nos permite controlar o que o service retorna durante o teste.
+const fetchAllEmployeeServiceMock = {
+  execute: vi.fn(),
+};
 
-describe("fetchAllEmployees controller", () => {
-  let mockReply: Partial<FastifyReply>;
+vi.mock('../../../services/factories/employee/make-fetch-all-employees-service', () => {
+  return {
+    makeFetchAllEmployeesService: () => fetchAllEmployeeServiceMock,
+  };
+});
+
+describe('Fetch All Employees Controller', () => {
+  let request: Partial<FastifyRequest>;
+  let reply: Partial<FastifyReply>;
 
   beforeEach(() => {
-    mockReply = {
+    // Mock dos objetos de requisição e resposta do Fastify
+    request = {}; // Não precisamos de body ou params para este controller
+
+    reply = {
       status: vi.fn().mockReturnThis(),
       send: vi.fn(),
     };
+  });
+
+  afterEach(() => {
+    // Limpa os mocks após cada teste para evitar interferência
     vi.clearAllMocks();
   });
 
-  it("deve retornar 200 e a lista de funcionários", async () => {
+  it('should fetch all employees successfully and return status 200', async () => {
+    // Arrange: Prepara o retorno do service mockado.
     const mockEmployees = [
-      { id: "1", name: "John Doe", email: "john@example.com" },
-      { id: "2", name: "Jane Doe", email: "jane@example.com" },
+      { id: 'employee-1', userId: 'user-1', createdAt: new Date(), updatedAt: new Date() },
+      { id: 'employee-2', userId: 'user-2', createdAt: new Date(), updatedAt: new Date() },
     ];
+    fetchAllEmployeeServiceMock.execute.mockResolvedValue({ employee: mockEmployees });
 
-    const mockService = {
-      execute: vi.fn().mockResolvedValueOnce({ employee: mockEmployees }),
-    };
-    (makeFetchAllEmployeesService as vi.Mock).mockReturnValue(mockService);
+    // Act: Executa a função do controller.
+    await fetchAllEmployees(request as FastifyRequest, reply as FastifyReply);
 
-    const mockRequest = {} as FastifyRequest;
-
-    await fetchAllEmployees(mockRequest, mockReply as FastifyReply);
-
-    expect(mockService.execute).toHaveBeenCalled();
-    expect(mockReply.status).toHaveBeenCalledWith(200);
-    expect(mockReply.send).toHaveBeenCalledWith({ employee: mockEmployees });
+    // Assert: Verifica se o controller se comportou como esperado.
+    expect(fetchAllEmployeeServiceMock.execute).toHaveBeenCalled();
+    expect(reply.status).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({ employee: mockEmployees });
   });
 
-  it("deve retornar 500 se o serviço lançar erro", async () => {
-    const mockService = {
-      execute: vi.fn().mockRejectedValueOnce(new Error("DB error")),
-    };
-    (makeFetchAllEmployeesService as vi.Mock).mockReturnValue(mockService);
+  it('should return status 500 when the service throws an error', async () => {
+    // Arrange: Configura o mock para simular um erro inesperado.
+    const serviceError = new Error('Database connection failed');
+    fetchAllEmployeeServiceMock.execute.mockRejectedValue(serviceError);
 
-    const mockRequest = {} as FastifyRequest;
+    // Act
+    await fetchAllEmployees(request as FastifyRequest, reply as FastifyReply);
 
-    await fetchAllEmployees(mockRequest, mockReply as FastifyReply);
-
-    expect(mockReply.status).toHaveBeenCalledWith(500);
-    expect(mockReply.send).toHaveBeenCalledWith({
-      message: "Internal Server Error",
-    });
+    // Assert
+    expect(reply.status).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({ message: 'Internal Server Error' });
   });
 });
