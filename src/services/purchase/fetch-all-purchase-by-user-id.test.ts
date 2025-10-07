@@ -1,56 +1,85 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { FetchAllPurchaseByUserIdService } from "../../services/purchase/fetch-all-purchase-by-user-id";
-import { ResourceNotFoundError } from "../../services/errors/resource-not-found-error";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemoryPurchaseRepository } from '../../repositories/in-memory/in-memory-purchase-repository';
+import { InMemoryUsersRepository } from '../../repositories/in-memory/in-memory-users-repository';
+import { FetchAllPurchaseByUserIdService } from './fetch-all-purchase-by-user-id';
+import { ResourceNotFoundError } from '../errors/resource-not-found-error';
 
-// Mocks dos repositórios
-const mockPurchaseRepository = {
-  findManyByUserId: vi.fn(),
-};
+// Declaração das variáveis
+let purchaseRepository: InMemoryPurchaseRepository;
+let usersRepository: InMemoryUsersRepository;
+let sut: FetchAllPurchaseByUserIdService; // SUT: System Under Test
 
-const mockUserRepository = {
-  findById: vi.fn(),
-};
-
-describe("FetchAllPurchaseByUserIdService", () => {
-  let fetchAllPurchaseByUserIdService: FetchAllPurchaseByUserIdService;
-
+describe('Fetch All Purchase by User Id Service', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    fetchAllPurchaseByUserIdService = new FetchAllPurchaseByUserIdService(
-      mockPurchaseRepository as any,
-      mockUserRepository as any
-    );
+    // Instancia os repositórios e o serviço antes de cada teste
+    purchaseRepository = new InMemoryPurchaseRepository();
+    usersRepository = new InMemoryUsersRepository();
+    sut = new FetchAllPurchaseByUserIdService(purchaseRepository, usersRepository);
   });
 
-  it("deve retornar todas as compras de um usuário válido", async () => {
-    const userId = "user-1";
+  it('should be able to fetch all purchases from a specific user', async () => {
+    // Arrange: Cria dois usuários e compras para ambos
+    const user1 = await usersRepository.create({
+      id: 'user-01',
+      name: 'User One',
+      email: 'userone@example.com',
+      password_hash: 'hashed_password'
+    });
 
-    const mockUser = { id: userId, name: "Usuário Teste" };
-    const mockPurchases = [
-      { id: "purchase-1", userId, total: 150, createdAt: new Date(), updatedAt: new Date() },
-      { id: "purchase-2", userId, total: 300, createdAt: new Date(), updatedAt: new Date() },
-    ];
+    const user2 = await usersRepository.create({
+      id: 'user-02',
+      name: 'User Two',
+      email: 'usertwo@example.com',
+      password_hash: 'hashed_password'
+    });
 
-    mockUserRepository.findById.mockResolvedValue(mockUser);
-    mockPurchaseRepository.findManyByUserId.mockResolvedValue(mockPurchases);
+    await purchaseRepository.create({
+      nf_number: 'NF-001',
+      supplier: { connect: { id: 'supplier-01' } },
+      user: { connect: { id: user1.id } },
+    });
 
-    const result = await fetchAllPurchaseByUserIdService.execute({ userId });
+    await purchaseRepository.create({
+      nf_number: 'NF-002',
+      supplier: { connect: { id: 'supplier-02' } },
+      user: { connect: { id: user1.id } },
+    });
 
-    expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
-    expect(mockPurchaseRepository.findManyByUserId).toHaveBeenCalledWith(userId);
-    expect(result.purchases).toEqual(mockPurchases);
+    await purchaseRepository.create({
+      nf_number: 'NF-003',
+      supplier: { connect: { id: 'supplier-01' } },
+      user: { connect: { id: user2.id } },
+    });
+
+    // Act: Executa o serviço buscando as compras do primeiro usuário
+    const { purchases } = await sut.execute({ userId: user1.id });
+
+    // Assert: Verifica se retornou apenas as compras do usuário correto
+    expect(purchases).toHaveLength(2);
+    expect(purchases[0].nf_number).toEqual('NF-001');
+    expect(purchases[1].nf_number).toEqual('NF-002');
   });
 
-  it("deve lançar ResourceNotFoundError se o usuário não for encontrado", async () => {
-    const userId = "user-1";
-
-    mockUserRepository.findById.mockResolvedValue(null);
-
-    await expect(
-      fetchAllPurchaseByUserIdService.execute({ userId })
+  it('should throw an error if the user is not found', async () => {
+    // Act & Assert: Tenta buscar compras de um usuário inexistente
+    await expect(() =>
+      sut.execute({ userId: 'non-existing-user-id' })
     ).rejects.toBeInstanceOf(ResourceNotFoundError);
+  });
 
-    expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
-    expect(mockPurchaseRepository.findManyByUserId).not.toHaveBeenCalled();
+  it('should return an empty array if the user has no purchases', async () => {
+    // Arrange: Cria um usuário mas nenhuma compra para ele
+    const user = await usersRepository.create({
+        id: 'user-no-purchases',
+        name: 'User No Purchases',
+        email: 'nouser@example.com',
+        password_hash: 'hashed_password'
+    });
+
+    // Act
+    const { purchases } = await sut.execute({ userId: user.id });
+
+    // Assert
+    expect(purchases).toHaveLength(0);
   });
 });

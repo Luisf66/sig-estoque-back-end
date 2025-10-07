@@ -1,133 +1,96 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { CreatePurchaseService } from "./create-purchase";
-import { InMemoryPurchaseRepository } from "../../repositories/in-memory/in-memory-purchase-repository";
-import { InMemoryItemRepository } from "../../repositories/in-memory/in-memory-item-repository";
-import { InMemoryProductsRepository } from "../../repositories/in-memory/in-memory-products-repository";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemoryPurchaseRepository } from '../../repositories/in-memory/in-memory-purchase-repository';
+import { InMemoryItemRepository } from '../../repositories/in-memory/in-memory-item-repository';
+import { InMemoryProductsRepository } from '../../repositories/in-memory/in-memory-products-repository';
+import { CreatePurchaseService } from './create-purchase';
 
-describe("CreatePurchaseService", () => {
-  let purchasesRepository: InMemoryPurchaseRepository;
-  let itemsRepository: InMemoryItemRepository;
-  let productsRepository: InMemoryProductsRepository;
-  let sut: CreatePurchaseService;
+// Declaração das variáveis
+let purchaseRepository: InMemoryPurchaseRepository;
+let itemRepository: InMemoryItemRepository;
+let productRepository: InMemoryProductsRepository;
+let sut: CreatePurchaseService; // SUT: System Under Test
 
+describe('Create Purchase Service', () => {
   beforeEach(() => {
-    purchasesRepository = new InMemoryPurchaseRepository();
-    itemsRepository = new InMemoryItemRepository();
-    productsRepository = new InMemoryProductsRepository();
-
-    sut = new CreatePurchaseService(
-      purchasesRepository,
-      itemsRepository,
-      productsRepository
-    );
+    // Instancia os repositórios e o serviço antes de cada teste
+    purchaseRepository = new InMemoryPurchaseRepository();
+    itemRepository = new InMemoryItemRepository();
+    productRepository = new InMemoryProductsRepository();
+    sut = new CreatePurchaseService(purchaseRepository, itemRepository, productRepository);
   });
 
-  it("deve criar uma compra com sucesso e atualizar estoque", async () => {
-    const product1 = await productsRepository.create({
-      name: "Produto 1",
-      description: "Desc",
+  it('should be able to create a new purchase and increase product stock', async () => {
+    // Arrange: Cria produtos que farão parte da compra
+    const product1 = await productRepository.create({
+      name: 'Product A',
       price: 10,
-      quantity_in_stock: 5,
-      batch: "BATCH-1",
+      quantity_in_stock: 50,
     });
 
-    const product2 = await productsRepository.create({
-      name: "Produto 2",
-      description: "Desc",
-      price: 20,
-      quantity_in_stock: 2,
-      batch: "BATCH-2",
-    });
-
-    const request = {
-      nf_number: "NF-001",
-      supplierId: "supplier-123",
-      userId: "user-456",
-      items: [
-        { productId: product1.id, quantity: 3, value: 10 },
-        { productId: product2.id, quantity: 2, value: 20 },
-      ],
-    };
-
-    const response = await sut.handle(request);
-
-    // Compra criada
-    expect(response.newPurchase).toEqual(
-      expect.objectContaining({
-        nf_number: "NF-001",
-      })
-    );
-
-    // Itens criados
-    expect(response.items.length).toBe(2);
-    expect(response.items[0]).toHaveProperty("id");
-    expect(response.items[1]).toHaveProperty("id");
-
-    // Estoque atualizado
-    const updatedProduct1 = await productsRepository.findById(product1.id);
-    const updatedProduct2 = await productsRepository.findById(product2.id);
-
-    expect(updatedProduct1?.quantity_in_stock).toBe(8);
-    expect(updatedProduct2?.quantity_in_stock).toBe(4);
-  });
-
-  it("deve lançar erro se algum produto não for encontrado", async () => {
-    const product = await productsRepository.create({
-      name: "Produto Existente",
-      description: "Desc",
-      price: 15,
-      quantity_in_stock: 10,
-      batch: "BATCH-3",
-    });
-
-    const request = {
-      nf_number: "NF-002",
-      supplierId: "supplier-123",
-      userId: "user-456",
-      items: [
-        { productId: product.id, quantity: 1, value: 15 },
-        { productId: "produto-inexistente", quantity: 1, value: 5 },
-      ],
-    };
-
-    await expect(sut.handle(request)).rejects.toThrowError("Product not found");
-  });
-
-  it("deve lançar erro se algum produto estiver inativo", async () => {
-    const activeProduct = await productsRepository.create({
-      name: "Produto Ativo",
-      description: "Desc",
-      price: 15,
-      quantity_in_stock: 10,
-      batch: "BATCH-4",
-    });
-
-    const inactiveProduct = await productsRepository.create({
-      name: "Produto Inativo",
-      description: "Desc",
+    const product2 = await productRepository.create({
+      name: 'Product B',
       price: 25,
-      quantity_in_stock: 5,
-      batch: "BATCH-5",
+      quantity_in_stock: 30,
     });
 
-    // Força produto inativo
-    const found = await productsRepository.findById(inactiveProduct.id);
-    if (found) {
-      found.is_active = false;
-    }
-
-    const request = {
-      nf_number: "NF-003",
-      supplierId: "supplier-123",
-      userId: "user-456",
+    // Act: Executa o serviço de criação de compra
+    const { newPurchase, items } = await sut.handle({
+      nf_number: 'NF-12345',
+      supplierId: 'supplier-01',
+      userId: 'user-01',
       items: [
-        { productId: activeProduct.id, quantity: 1, value: 15 },
-        { productId: inactiveProduct.id, quantity: 1, value: 25 },
+        { productId: product1.id, quantity: 10, value: 10 },
+        { productId: product2.id, quantity: 5, value: 25 },
       ],
-    };
+    });
 
-    await expect(sut.handle(request)).rejects.toThrowError(
-      /Produto Inativo/
-    );
+    // Assert
+    // Verifica se a compra e os itens foram criados
+    expect(newPurchase.id).toEqual(expect.any(String));
+    expect(items).toHaveLength(2);
+
+    // Verifica se o subtotal foi calculado e atualizado corretamente
+    // 10 (qtd) * 10 (val) + 5 (qtd) * 25 (val) = 100 + 125 = 225
+    expect(newPurchase.subTotal).toEqual(225);
+
+    // Verifica se o estoque dos produtos foi aumentado
+    const updatedProduct1 = await productRepository.findById(product1.id);
+    const updatedProduct2 = await productRepository.findById(product2.id);
+    expect(updatedProduct1?.quantity_in_stock).toEqual(60); // 50 + 10
+    expect(updatedProduct2?.quantity_in_stock).toEqual(35); // 30 + 5
+  });
+
+  it('should throw an error if a product is not found', async () => {
+    // Arrange
+    const product1 = await productRepository.create({ name: 'Product A', price: 10 });
+
+    // Act & Assert: Tenta criar uma compra com um produto que não existe
+    await expect(() =>
+      sut.handle({
+        nf_number: 'NF-Error',
+        supplierId: 'supplier-01',
+        userId: 'user-01',
+        items: [
+          { productId: product1.id, quantity: 1, value: 10 },
+          { productId: 'non-existing-product-id', quantity: 1, value: 20 },
+        ],
+      })
+    ).rejects.toThrow('Product not found');
+  });
+
+  it('should throw an error if a product is inactive', async () => {
+    // Arrange: Cria um produto e o inativa
+    const product1 = await productRepository.create({ name: 'Inactive Product', price: 10 });
+    await productRepository.inactivate(product1.id);
+
+    // Act & Assert: Tenta criar uma compra com um produto inativo
+    await expect(() =>
+      sut.handle({
+        nf_number: 'NF-Error-Inactive',
+        supplierId: 'supplier-01',
+        userId: 'user-01',
+        items: [{ productId: product1.id, quantity: 1, value: 10 }],
+      })
+    ).rejects.toThrow(`Product ${product1.name} does not exist or is inactive`);
   });
 });

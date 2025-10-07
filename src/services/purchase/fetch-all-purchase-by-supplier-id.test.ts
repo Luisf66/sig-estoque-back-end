@@ -1,56 +1,85 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { FetchAllPurchaseBySupplierIdService } from "../../services/purchase/fetch-all-purchase-by-supplier-id";
-import { ResourceNotFoundError } from "../../services/errors/resource-not-found-error";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemoryPurchaseRepository } from '../../repositories/in-memory/in-memory-purchase-repository';
+import { InMemorySuppliersRepository } from '../../repositories/in-memory/in-memory-supplier-repository';
+import { FetchAllPurchaseBySupplierIdService } from './fetch-all-purchase-by-supplier-id';
+import { ResourceNotFoundError } from '../errors/resource-not-found-error';
 
-// Mocks dos repositórios
-const mockPurchaseRepository = {
-  findManyBySupplierId: vi.fn(),
-};
+// Declaração das variáveis
+let purchaseRepository: InMemoryPurchaseRepository;
+let supplierRepository: InMemorySuppliersRepository;
+let sut: FetchAllPurchaseBySupplierIdService; // SUT: System Under Test
 
-const mockSupplierRepository = {
-  findById: vi.fn(),
-};
-
-describe("FetchAllPurchaseBySupplierIdService", () => {
-  let fetchAllPurchaseBySupplierIdService: FetchAllPurchaseBySupplierIdService;
-
+describe('Fetch All Purchase by Supplier Id Service', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    fetchAllPurchaseBySupplierIdService = new FetchAllPurchaseBySupplierIdService(
-      mockPurchaseRepository as any,
-      mockSupplierRepository as any
-    );
+    // Instancia os repositórios e o serviço antes de cada teste
+    purchaseRepository = new InMemoryPurchaseRepository();
+    supplierRepository = new InMemorySuppliersRepository();
+    sut = new FetchAllPurchaseBySupplierIdService(purchaseRepository, supplierRepository);
   });
 
-  it("deve retornar todas as compras de um fornecedor válido", async () => {
-    const supplierId = "supplier-1";
+  it('should be able to fetch all purchases from a specific supplier', async () => {
+    // Arrange: Cria dois fornecedores e compras para ambos
+    const supplier1 = await supplierRepository.create({
+      social_name: 'Supplier One LTDA',
+      company_name: 'Supplier One',
+      cnpj: '11111111111111',
+      phone_number: '111111111'
+    });
 
-    const mockSupplier = { id: supplierId, name: "Fornecedor Teste" };
-    const mockPurchases = [
-      { id: "purchase-1", supplierId, total: 100, createdAt: new Date(), updatedAt: new Date() },
-      { id: "purchase-2", supplierId, total: 200, createdAt: new Date(), updatedAt: new Date() },
-    ];
+    const supplier2 = await supplierRepository.create({
+      social_name: 'Supplier Two LTDA',
+      company_name: 'Supplier Two',
+      cnpj: '22222222222222',
+      phone_number: '222222222'
+    });
 
-    mockSupplierRepository.findById.mockResolvedValue(mockSupplier);
-    mockPurchaseRepository.findManyBySupplierId.mockResolvedValue(mockPurchases);
+    await purchaseRepository.create({
+      nf_number: 'NF-001',
+      supplier: { connect: { id: supplier1.id } },
+      user: { connect: { id: 'user-01' } },
+    });
 
-    const result = await fetchAllPurchaseBySupplierIdService.execute({ supplierId });
+    await purchaseRepository.create({
+      nf_number: 'NF-002',
+      supplier: { connect: { id: supplier1.id } },
+      user: { connect: { id: 'user-02' } },
+    });
 
-    expect(mockSupplierRepository.findById).toHaveBeenCalledWith(supplierId);
-    expect(mockPurchaseRepository.findManyBySupplierId).toHaveBeenCalledWith(supplierId);
-    expect(result.purchases).toEqual(mockPurchases);
+    await purchaseRepository.create({
+      nf_number: 'NF-003',
+      supplier: { connect: { id: supplier2.id } },
+      user: { connect: { id: 'user-01' } },
+    });
+
+    // Act: Executa o serviço buscando as compras do primeiro fornecedor
+    const { purchases } = await sut.execute({ supplierId: supplier1.id });
+
+    // Assert: Verifica se retornou apenas as compras do fornecedor correto
+    expect(purchases).toHaveLength(2);
+    expect(purchases[0].nf_number).toEqual('NF-001');
+    expect(purchases[1].nf_number).toEqual('NF-002');
   });
 
-  it("deve lançar ResourceNotFoundError se o fornecedor não for encontrado", async () => {
-    const supplierId = "supplier-1";
-
-    mockSupplierRepository.findById.mockResolvedValue(null);
-
-    await expect(
-      fetchAllPurchaseBySupplierIdService.execute({ supplierId })
+  it('should throw an error if the supplier is not found', async () => {
+    // Act & Assert: Tenta buscar compras de um fornecedor inexistente
+    await expect(() =>
+      sut.execute({ supplierId: 'non-existing-supplier-id' })
     ).rejects.toBeInstanceOf(ResourceNotFoundError);
+  });
 
-    expect(mockSupplierRepository.findById).toHaveBeenCalledWith(supplierId);
-    expect(mockPurchaseRepository.findManyBySupplierId).not.toHaveBeenCalled();
+  it('should return an empty array if the supplier has no purchases', async () => {
+    // Arrange: Cria um fornecedor mas nenhuma compra para ele
+    const supplier = await supplierRepository.create({
+        social_name: 'Supplier No Purchases LTDA',
+        company_name: 'Supplier No Purchases',
+        cnpj: '33333333333333',
+        phone_number: '333333333'
+    });
+
+    // Act
+    const { purchases } = await sut.execute({ supplierId: supplier.id });
+
+    // Assert
+    expect(purchases).toHaveLength(0);
   });
 });

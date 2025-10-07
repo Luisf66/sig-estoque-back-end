@@ -1,41 +1,46 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { FetchAllPurchaseService } from "../../services/purchase/fetch-all-purchase";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemoryPurchaseRepository } from '../../repositories/in-memory/in-memory-purchase-repository';
+import { FetchAllPurchaseService } from './fetch-all-purchase';
 
-// Mock do repositório
-const mockPurchaseRepository = {
-  findMany: vi.fn(),
-};
+// Declaração das variáveis
+let purchaseRepository: InMemoryPurchaseRepository;
+let sut: FetchAllPurchaseService; // SUT: System Under Test
 
-describe("FetchAllPurchaseService", () => {
-  let fetchAllPurchaseService: FetchAllPurchaseService;
-
+describe('Fetch All Purchase Service', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    fetchAllPurchaseService = new FetchAllPurchaseService(
-      mockPurchaseRepository as any
-    );
+    // Instancia o repositório e o serviço antes de cada teste
+    purchaseRepository = new InMemoryPurchaseRepository();
+    sut = new FetchAllPurchaseService(purchaseRepository);
   });
 
-  it("deve retornar todas as compras", async () => {
-    const mockPurchases = [
-      { id: "purchase-1", total: 100, createdAt: new Date(), updatedAt: new Date() },
-      { id: "purchase-2", total: 200, createdAt: new Date(), updatedAt: new Date() },
-    ];
+  it('should be able to fetch all purchases', async () => {
+    // Arrange: Cria algumas compras de exemplo
+    await purchaseRepository.create({
+      nf_number: 'NF-001',
+      supplier: { connect: { id: 'supplier-01' } },
+      user: { connect: { id: 'user-01' } },
+    });
 
-    mockPurchaseRepository.findMany.mockResolvedValue(mockPurchases);
+    await purchaseRepository.create({
+      nf_number: 'NF-002',
+      supplier: { connect: { id: 'supplier-02' } },
+      user: { connect: { id: 'user-02' } },
+    });
 
-    const result = await fetchAllPurchaseService.execute();
+    // Act: Executa o serviço
+    const { purchase } = await sut.execute();
 
-    expect(mockPurchaseRepository.findMany).toHaveBeenCalled();
-    expect(result.purchase).toEqual(mockPurchases);
+    // Assert: Verifica se todas as compras foram retornadas
+    expect(purchase).toHaveLength(2);
+    expect(purchase[0].nf_number).toEqual('NF-001');
+    expect(purchase[1].nf_number).toEqual('NF-002');
   });
 
-  it("deve retornar um array vazio se não houver compras", async () => {
-    mockPurchaseRepository.findMany.mockResolvedValue([]);
+  it('should return an empty array when there are no purchases', async () => {
+    // Act: Executa o serviço com o repositório vazio
+    const { purchase } = await sut.execute();
 
-    const result = await fetchAllPurchaseService.execute();
-
-    expect(mockPurchaseRepository.findMany).toHaveBeenCalled();
-    expect(result.purchase).toEqual([]);
+    // Assert: Verifica se um array vazio é retornado
+    expect(purchase).toHaveLength(0);
   });
 });
