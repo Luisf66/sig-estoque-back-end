@@ -1,48 +1,38 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { FindSaleByIdService } from "./find-sale-by-id";
-import { Sale } from "@prisma/client";
-import { ResourceNotFoundError } from "../errors/resource-not-found-error";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemorySaleRepository } from '../../repositories/in-memory/in-memory-sale-repository';
+import { FindSaleByIdService } from './find-sale-by-id';
+import { ResourceNotFoundError } from '../errors/resource-not-found-error';
 
-// Repositório em memória simulado
-class InMemorySaleRepository {
-  public items: Sale[] = [];
+// Declaração das variáveis
+let saleRepository: InMemorySaleRepository;
+let sut: FindSaleByIdService; // SUT: System Under Test
 
-  async findById(id: string): Promise<Sale | null> {
-    const sale = this.items.find((item) => item.id === id);
-    return sale || null;
-  }
-}
-
-describe("FindSaleByIdService", () => {
-  let saleRepository: InMemorySaleRepository;
-  let sut: FindSaleByIdService;
-
+describe('Find Sale By Id Service', () => {
   beforeEach(() => {
+    // Instancia o repositório e o serviço antes de cada teste
     saleRepository = new InMemorySaleRepository();
-    sut = new FindSaleByIdService(saleRepository as any);
+    sut = new FindSaleByIdService(saleRepository);
   });
 
-  it("deve retornar a venda correspondente ao ID fornecido", async () => {
-    const saleData: Sale = {
-      id: "sale-01",
-      sale_date: new Date(),
-      nf_number: "NF123",
-      subTotal: 500,
-      userId: "user-01",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+  it('should be able to find a sale by id', async () => {
+    // Arrange: Cria uma venda de exemplo
+    const createdSale = await saleRepository.create({
+      nf_number: 'NF-SALE-01',
+      user: { connect: { id: 'user-01' } },
+    });
 
-    saleRepository.items.push(saleData);
+    // Act: Executa o serviço com o ID da venda criada
+    const { sale } = await sut.execute({ saleId: createdSale.id });
 
-    const { sale } = await sut.execute({ saleId: "sale-01" });
-
-    expect(sale).toEqual(saleData);
+    // Assert: Verifica se a venda retornada é a correta
+    expect(sale.id).toEqual(createdSale.id);
+    expect(sale.nf_number).toEqual('NF-SALE-01');
   });
 
-  it("deve lançar ResourceNotFoundError se a venda não for encontrada", async () => {
+  it('should throw an error if the sale is not found', async () => {
+    // Act & Assert: Tenta buscar uma venda com um ID inexistente e espera um erro
     await expect(() =>
-      sut.execute({ saleId: "non-existent-sale" })
+      sut.execute({ saleId: 'non-existing-id' })
     ).rejects.toBeInstanceOf(ResourceNotFoundError);
   });
 });

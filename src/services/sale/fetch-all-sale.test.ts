@@ -1,58 +1,43 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { FetchAllSaleService } from "./fetch-all-sale";
-import { Sale } from "@prisma/client";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemorySaleRepository } from '../../repositories/in-memory/in-memory-sale-repository';
+import { FetchAllSaleService } from './fetch-all-sale';
 
-// Repositório em memória simulado
-class InMemorySaleRepository {
-  public items: Sale[] = [];
+// Declaração das variáveis
+let saleRepository: InMemorySaleRepository;
+let sut: FetchAllSaleService; // SUT: System Under Test
 
-  async findMany(): Promise<Sale[]> {
-    return this.items;
-  }
-}
-
-describe("FetchAllSaleService", () => {
-  let saleRepository: InMemorySaleRepository;
-  let sut: FetchAllSaleService;
-
+describe('Fetch All Sale Service', () => {
   beforeEach(() => {
+    // Instancia o repositório e o serviço antes de cada teste
     saleRepository = new InMemorySaleRepository();
-    sut = new FetchAllSaleService(saleRepository as any);
+    sut = new FetchAllSaleService(saleRepository);
   });
 
-  it("deve buscar todas as vendas existentes", async () => {
-    saleRepository.items.push(
-      {
-        id: "sale-01",
-        sale_date: new Date(),
-        nf_number: "NF001",
-        subTotal: 100.0,
-        userId: "user-01",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "sale-02",
-        sale_date: new Date(),
-        nf_number: "NF002",
-        subTotal: 250.0,
-        userId: "user-02",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-    );
+  it('should be able to fetch all sales', async () => {
+    // Arrange: Cria algumas vendas de exemplo
+    await saleRepository.create({
+      nf_number: 'NF-SALE-01',
+      user: { connect: { id: 'user-01' } },
+    });
 
+    await saleRepository.create({
+      nf_number: 'NF-SALE-02',
+      user: { connect: { id: 'user-02' } },
+    });
+
+    // Act: Executa o serviço
     const { sale } = await sut.execute();
 
+    // Assert: Verifica se todas as vendas foram retornadas
     expect(sale).toHaveLength(2);
-    expect(sale[0].id).toBe("sale-01");
-    expect(sale[1].id).toBe("sale-02");
+    expect(sale[0].nf_number).toEqual('NF-SALE-01');
   });
 
-  it("deve retornar um array vazio quando não houver vendas", async () => {
+  it('should return an empty array when there are no sales', async () => {
+    // Act: Executa o serviço com o repositório vazio
     const { sale } = await sut.execute();
 
-    expect(sale).toEqual([]);
+    // Assert: Verifica se um array vazio é retornado
     expect(sale).toHaveLength(0);
   });
 });

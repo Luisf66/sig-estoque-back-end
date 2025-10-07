@@ -1,89 +1,76 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { FetchAllSaleByUserIdService } from "./fetch-all-sale-by-user-id";
-import { ResourceNotFoundError } from "../errors/resource-not-found-error";
-import { Sale } from "@prisma/client";
+import { beforeEach, describe, expect, it } from 'vitest';
+import { InMemorySaleRepository } from '../../repositories/in-memory/in-memory-sale-repository';
+import { InMemoryUsersRepository } from '../../repositories/in-memory/in-memory-users-repository';
+import { FetchAllSaleByUserIdService } from './fetch-all-sale-by-user-id';
+import { ResourceNotFoundError } from '../errors/resource-not-found-error';
 
-// Repositórios em memória simulados
-class InMemorySaleRepository {
-  public items: Sale[] = [];
+// Declaração das variáveis
+let saleRepository: InMemorySaleRepository;
+let usersRepository: InMemoryUsersRepository;
+let sut: FetchAllSaleByUserIdService; // SUT: System Under Test
 
-  async findManyByUserId(userId: string): Promise<Sale[]> {
-    return this.items.filter((sale) => sale.userId === userId);
-  }
-}
-
-class InMemoryUserRepository {
-  private users: { id: string; name: string }[] = [];
-
-  async findById(id: string) {
-    return this.users.find((u) => u.id === id) || null;
-  }
-
-  async create(id: string, name: string) {
-    this.users.push({ id, name });
-  }
-}
-
-describe("FetchAllSaleByUserIdService", () => {
-  let saleRepository: InMemorySaleRepository;
-  let userRepository: InMemoryUserRepository;
-  let sut: FetchAllSaleByUserIdService;
-
+describe('Fetch All Sale By User Id Service', () => {
   beforeEach(() => {
+    // Instancia os repositórios e o serviço antes de cada teste
     saleRepository = new InMemorySaleRepository();
-    userRepository = new InMemoryUserRepository();
-    sut = new FetchAllSaleByUserIdService(saleRepository as any, userRepository as any);
+    usersRepository = new InMemoryUsersRepository();
+    sut = new FetchAllSaleByUserIdService(saleRepository, usersRepository);
   });
 
-  it("deve buscar todas as vendas de um usuário existente", async () => {
-    await userRepository.create("user-01", "Usuário Teste");
+  it('should be able to fetch all sales by user id', async () => {
+    // Arrange: Cria um usuário e duas vendas associadas a ele
+    const user = await usersRepository.create({
+      id: 'user-01',
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+      password_hash: 'hashed_password'
+    });
 
-    saleRepository.items.push(
-      {
-        id: "sale-01",
-        sale_date: new Date(),
-        nf_number: "NF001",
-        subTotal: 150.5,
-        userId: "user-01",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "sale-02",
-        sale_date: new Date(),
-        nf_number: "NF002",
-        subTotal: 200.0,
-        userId: "user-01",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        id: "sale-03",
-        sale_date: new Date(),
-        nf_number: "NF003",
-        subTotal: 300.0,
-        userId: "user-02",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-    );
+    await saleRepository.create({
+      nf_number: 'NF-SALE-01',
+      user: { connect: { id: user.id } },
+    });
 
-    const { sales } = await sut.execute({ userId: "user-01" });
+    await saleRepository.create({
+      nf_number: 'NF-SALE-02',
+      user: { connect: { id: user.id } },
+    });
 
+    // Cria outra venda para outro usuário para garantir que não seja retornada
+    await saleRepository.create({
+      nf_number: 'NF-SALE-03',
+      user: { connect: { id: 'user-02' } },
+    });
+
+    // Act: Executa o serviço
+    const { sales } = await sut.execute({ userId: user.id });
+
+    // Assert: Verifica se apenas as vendas do usuário correto foram retornadas
     expect(sales).toHaveLength(2);
-    expect(sales[0].id).toBe("sale-01");
-    expect(sales[1].id).toBe("sale-02");
+    expect(sales[0].nf_number).toEqual('NF-SALE-01');
+    expect(sales[1].nf_number).toEqual('NF-SALE-02');
   });
 
-  it("deve lançar erro se o usuário não for encontrado", async () => {
-    await expect(() => sut.execute({ userId: "non-existent-user" })).rejects.toBeInstanceOf(ResourceNotFoundError);
-  });
+  it('should return an empty array when the user has no sales', async () => {
+    // Arrange: Cria um usuário sem vendas associadas
+    const user = await usersRepository.create({
+      id: 'user-01',
+      name: 'Jane Doe',
+      email: 'jane.doe@example.com',
+      password_hash: 'hashed_password'
+    });
 
-  it("deve retornar um array vazio se o usuário não tiver vendas", async () => {
-    await userRepository.create("user-02", "Usuário Sem Vendas");
+    // Act: Executa o serviço
+    const { sales } = await sut.execute({ userId: user.id });
 
-    const { sales } = await sut.execute({ userId: "user-02" });
-
+    // Assert: Verifica se um array vazio é retornado
     expect(sales).toHaveLength(0);
+  });
+
+  it('should throw an error if the user is not found', async () => {
+    // Act & Assert: Tenta buscar vendas de um usuário inexistente e espera um erro
+    await expect(() =>
+      sut.execute({ userId: 'non-existing-user-id' })
+    ).rejects.toBeInstanceOf(ResourceNotFoundError);
   });
 });
