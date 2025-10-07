@@ -1,54 +1,60 @@
-// src/http/controllers/supplier/delete.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { FastifyReply, FastifyRequest } from 'fastify';
-import { deleteSupplier } from './delete';
-import * as makeDeleteSupplierServiceModule from '../../../services/factories/supplier/make-delete-supplier-service';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { deleteSupplier } from './delete'; // Ajuste o caminho
 
-describe('deleteSupplier Controller', () => {
-  let mockRequest: Partial<FastifyRequest>;
-  let mockReply: Partial<FastifyReply>;
-  const mockCode = vi.fn().mockReturnThis();
-  const mockSend = vi.fn().mockReturnThis();
+// Mock da factory que cria o service
+const deleteSupplierServiceMock = {
+  execute: vi.fn(),
+};
+
+vi.mock('../../../services/factories/supplier/make-delete-supplier-service', () => {
+  return {
+    makeDeleteSupplierService: () => deleteSupplierServiceMock,
+  };
+});
+
+describe('Delete Supplier Controller', () => {
+  let request: Partial<FastifyRequest>;
+  let reply: Partial<FastifyReply>;
+  const supplierId = 'supplier-id-123';
 
   beforeEach(() => {
+    request = {
+      params: { id: supplierId },
+    };
+
+    reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    };
+  });
+
+  afterEach(() => {
     vi.clearAllMocks();
-
-    mockRequest = {
-      params: { id: 'supplier-123' },
-    };
-
-    mockReply = {
-      code: mockCode,
-      send: mockSend,
-    };
   });
 
-  it('deve deletar um fornecedor com sucesso e retornar 204', async () => {
-    const executeMock = vi.fn().mockResolvedValue(undefined);
+  it('should delete a supplier and return status 204', async () => {
+    // Arrange
+    deleteSupplierServiceMock.execute.mockResolvedValue(undefined);
 
-    vi.spyOn(makeDeleteSupplierServiceModule, 'makeDeleteSupplierService').mockReturnValue({
-      execute: executeMock,
-    } as any);
+    // Act
+    await deleteSupplier(request as FastifyRequest, reply as FastifyReply);
 
-    await deleteSupplier(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
-    expect(executeMock).toHaveBeenCalledWith({ id: 'supplier-123' });
-    expect(mockCode).toHaveBeenCalledWith(204);
-    expect(mockSend).toHaveBeenCalled();
+    // Assert
+    expect(deleteSupplierServiceMock.execute).toHaveBeenCalledWith({ id: supplierId });
+    expect(reply.code).toHaveBeenCalledWith(204);
+    expect(reply.send).toHaveBeenCalled();
   });
 
-  it('deve lançar erro se o serviço falhar (erro interno)', async () => {
-    const executeMock = vi.fn().mockRejectedValue(new Error('Erro interno'));
+  it('should throw an error if the service fails', async () => {
+    // Arrange
+    const serviceError = new Error('Supplier not found');
+    deleteSupplierServiceMock.execute.mockRejectedValue(serviceError);
 
-    vi.spyOn(makeDeleteSupplierServiceModule, 'makeDeleteSupplierService').mockReturnValue({
-      execute: executeMock,
-    } as any);
-
-    // Captura a exceção para evitar que o teste falhe
+    // Act & Assert
+    // Verifica se a chamada ao controller rejeita a promessa com o erro esperado
     await expect(
-      deleteSupplier(mockRequest as FastifyRequest, mockReply as FastifyReply)
-    ).rejects.toThrow('Erro interno');
-
-    expect(executeMock).toHaveBeenCalledWith({ id: 'supplier-123' });
+      deleteSupplier(request as FastifyRequest, reply as FastifyReply)
+    ).rejects.toThrow('Supplier not found');
   });
 });

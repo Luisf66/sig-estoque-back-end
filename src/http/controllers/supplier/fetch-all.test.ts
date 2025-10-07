@@ -1,61 +1,59 @@
-// src/http/controllers/supplier/fetch-all.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { fetchAllSupplier } from './fetch-all';
-import * as makeFetchAllSupplierServiceModule from '../../../services/factories/supplier/make-fetch-all-supplier-service';
+import { fetchAllSupplier } from './fetch-all'; // Ajuste o caminho
 
-describe('fetchAllSupplier Controller', () => {
-  let mockRequest: Partial<FastifyRequest>;
-  let mockReply: Partial<FastifyReply>;
-  const codeMock = vi.fn().mockReturnThis();
-  const sendMock = vi.fn().mockReturnThis();
+// Mock da factory que cria o service
+const fetchAllSupplierServiceMock = {
+  execute: vi.fn(),
+};
+
+vi.mock('../../../services/factories/supplier/make-fetch-all-supplier-service', () => {
+  return {
+    makeFetchAllSupplierService: () => fetchAllSupplierServiceMock,
+  };
+});
+
+describe('Fetch All Supplier Controller', () => {
+  let request: Partial<FastifyRequest>;
+  let reply: Partial<FastifyReply>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-
-    mockRequest = {};
-
-    mockReply = {
-      code: codeMock,
-      send: sendMock,
+    request = {}; // Não precisa de body ou params para este controller
+    reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
     };
   });
 
-  it('deve retornar 200 e a lista de fornecedores com sucesso', async () => {
-    const executeMock = vi.fn().mockResolvedValue({
-      supplier: [
-        { id: '1', social_name: 'Fornecedor A' },
-        { id: '2', social_name: 'Fornecedor B' },
-      ],
-    });
-
-    vi.spyOn(makeFetchAllSupplierServiceModule, 'makeFetchAllSupplierService').mockReturnValue({
-      execute: executeMock,
-    } as any);
-
-    await fetchAllSupplier(mockRequest as FastifyRequest, mockReply as FastifyReply);
-
-    expect(executeMock).toHaveBeenCalled();
-    expect(codeMock).toHaveBeenCalledWith(200);
-    expect(sendMock).toHaveBeenCalledWith({
-      supplier: [
-        { id: '1', social_name: 'Fornecedor A' },
-        { id: '2', social_name: 'Fornecedor B' },
-      ],
-    });
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('deve lançar erro se o serviço falhar', async () => {
-    const executeMock = vi.fn().mockRejectedValue(new Error('Erro interno'));
+  it('should fetch all suppliers and return status 200', async () => {
+    // Arrange
+    const suppliersList = [
+      { id: 'supplier-01', company_name: 'Supplier A' },
+      { id: 'supplier-02', company_name: 'Supplier B' },
+    ];
+    fetchAllSupplierServiceMock.execute.mockResolvedValue({ supplier: suppliersList });
 
-    vi.spyOn(makeFetchAllSupplierServiceModule, 'makeFetchAllSupplierService').mockReturnValue({
-      execute: executeMock,
-    } as any);
+    // Act
+    await fetchAllSupplier(request as FastifyRequest, reply as FastifyReply);
 
+    // Assert
+    expect(fetchAllSupplierServiceMock.execute).toHaveBeenCalled();
+    expect(reply.code).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({ supplier: suppliersList });
+  });
+
+  it('should throw an error if the service fails', async () => {
+    // Arrange
+    const serviceError = new Error('Failed to fetch from database');
+    fetchAllSupplierServiceMock.execute.mockRejectedValue(serviceError);
+
+    // Act & Assert
     await expect(
-      fetchAllSupplier(mockRequest as FastifyRequest, mockReply as FastifyReply)
-    ).rejects.toThrow('Erro interno');
-
-    expect(executeMock).toHaveBeenCalled();
+      fetchAllSupplier(request as FastifyRequest, reply as FastifyReply)
+    ).rejects.toThrow('Failed to fetch from database');
   });
 });

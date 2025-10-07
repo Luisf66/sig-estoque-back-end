@@ -1,94 +1,88 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { findUserByid } from "./find-by-id";
-import { makeGetUserByIdService } from "../../../services/factories/user/make-get-user-by-id";
-import { ResourceNotFoundError } from "../../../services/errors/resource-not-found-error";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { findUserByid } from './find-by-id'; // Ajuste o caminho
+import { ResourceNotFoundError } from '../../../services/errors/resource-not-found-error';
 
-vi.mock("../../../services/factories/user/make-get-user-by-id");
+// Mock da factory que cria o service
+const getUserByIdServiceMock = {
+  execute: vi.fn(),
+};
 
-describe("findUserByid Controller", () => {
-  let request: any;
-  let reply: any;
-  let statusMock: any;
-  let sendMock: any;
-  let codeMock: any;
-  let executeMock: any;
+vi.mock('../../../services/factories/user/make-get-user-by-id', () => {
+  return {
+    makeGetUserByIdService: () => getUserByIdServiceMock,
+  };
+});
+
+describe('Find User By Id Controller', () => {
+  let request: Partial<FastifyRequest>;
+  let reply: Partial<FastifyReply>;
+  const userIdToFind = 'user-01';
 
   beforeEach(() => {
-    statusMock = vi.fn().mockReturnThis();
-    codeMock = vi.fn().mockReturnThis();
-    sendMock = vi.fn();
-
-    reply = {
-      status: statusMock,
-      send: sendMock,
-      code: codeMock,
+    request = {
+      params: { id: userIdToFind },
     };
-
-    executeMock = vi.fn();
-    (makeGetUserByIdService as any).mockReturnValue({
-      execute: executeMock,
-    });
+    reply = {
+      status: vi.fn().mockReturnThis(),
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    };
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("deve retornar 200 e o usuário quando encontrado", async () => {
-    request = {
-      params: { id: "user-1" },
-    };
+  it('should return a user and status 200', async () => {
+    // Arrange
+    const user = { id: userIdToFind, name: 'John Doe' };
+    getUserByIdServiceMock.execute.mockResolvedValue({ user });
 
-    const user = { id: "user-1", name: "John Doe" };
-    executeMock.mockResolvedValue({ user });
+    // Act
+    await findUserByid(request as FastifyRequest, reply as FastifyReply);
 
-    await findUserByid(request, reply);
-
-    expect(executeMock).toHaveBeenCalledWith({ userId: "user-1" });
-    expect(codeMock).toHaveBeenCalledWith(200);
-    expect(sendMock).toHaveBeenCalledWith({ user });
+    // Assert
+    expect(getUserByIdServiceMock.execute).toHaveBeenCalledWith({ userId: userIdToFind });
+    expect(reply.code).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({ user });
   });
 
-  it("deve retornar 404 se o usuário não for encontrado (user = null)", async () => {
-    request = {
-      params: { id: "user-2" },
-    };
+  it('should return status 404 if user is not found by service return', async () => {
+    // Arrange
+    getUserByIdServiceMock.execute.mockResolvedValue({ user: null });
 
-    executeMock.mockResolvedValue({ user: null });
+    // Act
+    await findUserByid(request as FastifyRequest, reply as FastifyReply);
 
-    await findUserByid(request, reply);
-
-    expect(executeMock).toHaveBeenCalledWith({ userId: "user-2" });
-    expect(statusMock).toHaveBeenCalledWith(404);
-    expect(sendMock).toHaveBeenCalledWith({ message: "User not found" });
+    // Assert
+    expect(reply.status).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({ message: "User not found" });
   });
 
-  it("deve retornar 404 se o serviço lançar ResourceNotFoundError", async () => {
-    request = {
-      params: { id: "user-3" },
-    };
+  it('should return status 404 if service throws ResourceNotFoundError', async () => {
+    // Arrange
+    const serviceError = new ResourceNotFoundError();
+    getUserByIdServiceMock.execute.mockRejectedValue(serviceError);
 
-    executeMock.mockRejectedValue(new ResourceNotFoundError());
+    // Act
+    await findUserByid(request as FastifyRequest, reply as FastifyReply);
 
-    await findUserByid(request, reply);
-
-    expect(executeMock).toHaveBeenCalledWith({ userId: "user-3" });
-    expect(statusMock).toHaveBeenCalledWith(404);
-    // AQUI: corrigimos para a mensagem real da exceção
-    expect(sendMock).toHaveBeenCalledWith({ message: "Resource not found" });
+    // Assert
+    expect(reply.status).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({ message: serviceError.message });
   });
 
-  it("deve retornar 500 se ocorrer um erro inesperado", async () => {
-    request = {
-      params: { id: "user-4" },
-    };
+  it('should return status 500 for other errors', async () => {
+    // Arrange
+    const unexpectedError = new Error('Internal service error');
+    getUserByIdServiceMock.execute.mockRejectedValue(unexpectedError);
 
-    executeMock.mockRejectedValue(new Error("Erro inesperado"));
+    // Act
+    await findUserByid(request as FastifyRequest, reply as FastifyReply);
 
-    await findUserByid(request, reply);
-
-    expect(executeMock).toHaveBeenCalledWith({ userId: "user-4" });
-    expect(statusMock).toHaveBeenCalledWith(500);
-    expect(sendMock).toHaveBeenCalledWith({ message: "Internal Server Error" });
+    // Assert
+    expect(reply.status).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({ message: 'Internal Server Error' });
   });
 });

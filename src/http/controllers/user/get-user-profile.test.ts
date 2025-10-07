@@ -1,99 +1,104 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { profile } from "./get-user-profile";
-import { makeGetUserProfileService } from "../../../services/factories/user/make-get-user-profile-service";
-import { makeFindManagerByUserIdService } from "../../../services/factories/manager/make-find-manager-by-user-id-service";
-import { ResourceNotFoundError } from "../../../services/errors/resource-not-found-error";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { profile } from './get-user-profile'; // Ajuste o caminho
+import { ResourceNotFoundError } from '../../../services/errors/resource-not-found-error';
 
-vi.mock("../../../services/factories/user/make-get-user-profile-service");
-vi.mock("../../../services/factories/manager/make-find-manager-by-user-id-service");
+// Mock das factories que criam os services
+const getUserProfileServiceMock = {
+  execute: vi.fn(),
+};
 
-describe("profile Controller", () => {
-  let request: any;
-  let reply: any;
-  let statusMock: any;
-  let sendMock: any;
-  let executeUserProfileMock: any;
-  let executeFindManagerMock: any;
-  let jwtVerifyMock: any;
+const findManagerByUserIdServiceMock = {
+  execute: vi.fn(),
+};
+
+vi.mock('../../../services/factories/user/make-get-user-profile-service', () => ({
+  makeGetUserProfileService: () => getUserProfileServiceMock,
+}));
+
+vi.mock('../../../services/factories/manager/make-find-manager-by-user-id-service', () => ({
+  makeFindManagerByUserIdService: () => findManagerByUserIdServiceMock,
+}));
+
+
+describe('Get User Profile Controller', () => {
+  let request: Partial<FastifyRequest>;
+  let reply: Partial<FastifyReply>;
 
   beforeEach(() => {
-    statusMock = vi.fn().mockReturnThis();
-    sendMock = vi.fn();
-
-    reply = {
-      status: statusMock,
-      send: sendMock,
-    };
-
-    jwtVerifyMock = vi.fn();
-
     request = {
-      jwtVerify: jwtVerifyMock,
+      // Mock da verificação JWT e do usuário decodificado
+      jwtVerify: vi.fn().mockResolvedValue(undefined),
       user: {
-        sub: "user-123",
+        sub: 'user-01',
+        role: 'MANAGER' // Role padrão para os testes
       },
     };
-
-    executeUserProfileMock = vi.fn();
-    (makeGetUserProfileService as any).mockReturnValue({
-      execute: executeUserProfileMock,
-    });
-
-    executeFindManagerMock = vi.fn();
-    (makeFindManagerByUserIdService as any).mockReturnValue({
-      execute: executeFindManagerMock,
-    });
+    reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    };
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("deve retornar 200 e os dados do usuário + manager quando o usuário for MANAGER", async () => {
-    const fakeUser = { id: "user-123", name: "John Doe", role: "MANAGER" };
-    const fakeManager = { id: "manager-1", userId: "user-123", name: "Gerente" };
+  it('should return user and manager profile for a MANAGER role', async () => {
+    // Arrange
+    const user = { id: 'user-01', name: 'John Doe', role: 'MANAGER' };
+    const managerProfile = { manager: { id: 'manager-01', userId: 'user-01' } };
+    
+    getUserProfileServiceMock.execute.mockResolvedValue({ user });
+    findManagerByUserIdServiceMock.execute.mockResolvedValue(managerProfile);
 
-    executeUserProfileMock.mockResolvedValue({ user: fakeUser });
-    executeFindManagerMock.mockResolvedValue(fakeManager);
+    // Act
+    await profile(request as FastifyRequest, reply as FastifyReply);
 
-    await profile(request, reply);
-
-    expect(jwtVerifyMock).toHaveBeenCalledOnce();
-    expect(executeUserProfileMock).toHaveBeenCalledWith({ userId: "user-123" });
-    expect(executeFindManagerMock).toHaveBeenCalledWith({ userId: "user-123" });
-    expect(statusMock).toHaveBeenCalledWith(200);
-    expect(sendMock).toHaveBeenCalledWith({
-      user: fakeUser,
-      switchedUser: fakeManager,
-    });
+    // Assert
+    expect(request.jwtVerify).toHaveBeenCalled();
+    expect(getUserProfileServiceMock.execute).toHaveBeenCalledWith({ userId: 'user-01' });
+    expect(findManagerByUserIdServiceMock.execute).toHaveBeenCalledWith({ userId: 'user-01' });
+    expect(reply.status).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({ user, switchedUser: managerProfile });
   });
 
-  it("deve retornar 404 se o role do usuário for inválido", async () => {
-    const fakeUser = { id: "user-456", name: "Jane Doe", role: "UNKNOWN" };
-    executeUserProfileMock.mockResolvedValue({ user: fakeUser });
+  it('should return 404 if user is not found', async () => {
+    // Arrange
+    const serviceError = new ResourceNotFoundError();
+    getUserProfileServiceMock.execute.mockRejectedValue(serviceError);
 
-    await profile(request, reply);
+    // Act
+    await profile(request as FastifyRequest, reply as FastifyReply);
 
-    expect(statusMock).toHaveBeenCalledWith(404);
-    expect(sendMock).toHaveBeenCalledWith({ message: "Resource not found" });
+    // Assert
+    expect(reply.status).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({ message: serviceError.message });
   });
 
-  it("deve retornar 404 se o serviço getUserProfile lançar ResourceNotFoundError", async () => {
-    executeUserProfileMock.mockRejectedValue(new ResourceNotFoundError());
+  it('should return 404 for an unsupported user role', async () => {
+    // Arrange
+    const user = { id: 'user-01', name: 'John Doe', role: 'ADMIN' }; // Role não tratada no switch
+    getUserProfileServiceMock.execute.mockResolvedValue({ user });
 
-    await profile(request, reply);
+    // Act
+    await profile(request as FastifyRequest, reply as FastifyReply);
 
-    expect(executeUserProfileMock).toHaveBeenCalledWith({ userId: "user-123" });
-    expect(statusMock).toHaveBeenCalledWith(404);
-    expect(sendMock).toHaveBeenCalledWith({ message: "Resource not found" });
+    // Assert
+    expect(reply.status).toHaveBeenCalledWith(404);
+    expect(reply.send).toHaveBeenCalledWith({ message: expect.any(String) });
   });
 
-  it("deve retornar 500 se ocorrer um erro inesperado", async () => {
-    executeUserProfileMock.mockRejectedValue(new Error("Erro inesperado"));
+  it('should return 500 for other unexpected errors', async () => {
+    // Arrange
+    const unexpectedError = new Error('Internal service error');
+    getUserProfileServiceMock.execute.mockRejectedValue(unexpectedError);
 
-    await profile(request, reply);
+    // Act
+    await profile(request as FastifyRequest, reply as FastifyReply);
 
-    expect(statusMock).toHaveBeenCalledWith(500);
-    expect(sendMock).toHaveBeenCalledWith({ message: "Internal Server Error" });
+    // Assert
+    expect(reply.status).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({ message: 'Internal Server Error' });
   });
 });

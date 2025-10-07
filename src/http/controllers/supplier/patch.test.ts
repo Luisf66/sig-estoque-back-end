@@ -1,95 +1,94 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import Fastify from "fastify";
-import { patchSupplier } from "./patch";
-import * as factoryModule from "../../../services/factories/supplier/make-patch-supplier-service";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { patchSupplier } from './patch'; // Ajuste o caminho
 
-describe("patchSupplier controller", () => {
-  const fastify = Fastify();
+// Mock da factory que cria o service
+const patchSupplierServiceMock = {
+  handle: vi.fn(),
+};
 
-  // Criamos uma rota temporária para testar o controlador isoladamente
-  fastify.patch("/suppliers/:id", patchSupplier);
+vi.mock('../../../services/factories/supplier/make-patch-supplier-service', () => {
+  return {
+    makePatchSupplierService: () => patchSupplierServiceMock,
+  };
+});
 
-  const mockHandle = vi.fn();
+describe('Patch Supplier Controller', () => {
+  let request: Partial<FastifyRequest>;
+  let reply: Partial<FastifyReply>;
+  const supplierIdToUpdate = 'supplier-01';
 
   beforeEach(() => {
-    vi.spyOn(factoryModule, "makePatchSupplierService").mockReturnValue({
-      handle: mockHandle,
-    } as any);
+    request = {
+      params: { id: supplierIdToUpdate },
+      body: {}, // Body será definido em cada teste
+    };
+    reply = {
+      code: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    };
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
-    mockHandle.mockReset();
+    vi.clearAllMocks();
   });
 
-  it("deve atualizar parcialmente um fornecedor com sucesso", async () => {
-    const supplierId = "123e4567-e89b-12d3-a456-426614174000";
+  it('should update a supplier and return status 200', async () => {
+    // Arrange
+    const updateData = { company_name: 'New Company Name' };
+    const updatedSupplier = { id: supplierIdToUpdate, ...updateData };
+    request.body = updateData;
+    patchSupplierServiceMock.handle.mockResolvedValue({ supplier: updatedSupplier });
 
-    mockHandle.mockResolvedValueOnce({
-      supplier: {
-        id: supplierId,
-        social_name: "Novo Nome Social",
-        company_name: "Empresa Atualizada",
-        phone_number: "11999999999",
-        cnpj: "12345678000199",
-      },
-    });
+    // Act
+    await patchSupplier(request as FastifyRequest, reply as FastifyReply);
 
-    const response = await fastify.inject({
-      method: "PATCH",
-      url: `/suppliers/${supplierId}`,
-      payload: {
-        social_name: "Novo Nome Social",
-        company_name: "Empresa Atualizada",
-      },
-    });
-
-    expect(response.statusCode).toBe(200);
-    const body = response.json();
-    expect(body.supplier.id).toBe(supplierId);
-    expect(mockHandle).toHaveBeenCalledWith({
-      id: supplierId,
+    // Assert
+    expect(patchSupplierServiceMock.handle).toHaveBeenCalledWith({
+      id: supplierIdToUpdate,
       data: {
-        social_name: "Novo Nome Social",
-        company_name: "Empresa Atualizada",
+        social_name: undefined,
+        company_name: updateData.company_name,
         phone_number: undefined,
         cnpj: undefined,
       },
     });
+    expect(reply.code).toHaveBeenCalledWith(200);
+    expect(reply.send).toHaveBeenCalledWith({ supplier: updatedSupplier });
   });
 
-  it("deve retornar 400 se o corpo for inválido", async () => {
-    const supplierId = "123e4567-e89b-12d3-a456-426614174000";
+  it('should return status 400 for invalid body data', async () => {
+    // Arrange
+    // O Zod espera um 'string', mas enviamos um número para forçar o erro.
+    request.body = { company_name: 12345 }; 
 
-    const response = await fastify.inject({
-      method: "PATCH",
-      url: `/suppliers/${supplierId}`,
-      payload: {
-        social_name: 123, // inválido, deveria ser string
-      },
+    // Act
+    await patchSupplier(request as FastifyRequest, reply as FastifyReply);
+
+    // Assert
+    expect(reply.code).toHaveBeenCalledWith(400);
+    expect(reply.send).toHaveBeenCalledWith({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Invalid input',
     });
-
-    expect(response.statusCode).toBe(400);
-    const body = response.json();
-    expect(body.error).toBe("Bad Request");
-    expect(mockHandle).not.toHaveBeenCalled();
   });
 
-  it("deve retornar 500 se o serviço lançar um erro inesperado", async () => {
-    const supplierId = "123e4567-e89b-12d3-a456-426614174000";
+  it('should return status 500 if the service fails', async () => {
+    // Arrange
+    const serviceError = new Error('Database connection failed');
+    request.body = { company_name: 'Any Name' };
+    patchSupplierServiceMock.handle.mockRejectedValue(serviceError);
 
-    mockHandle.mockRejectedValueOnce(new Error("Erro interno"));
+    // Act
+    await patchSupplier(request as FastifyRequest, reply as FastifyReply);
 
-    const response = await fastify.inject({
-      method: "PATCH",
-      url: `/suppliers/${supplierId}`,
-      payload: {
-        social_name: "Nome",
-      },
+    // Assert
+    expect(reply.code).toHaveBeenCalledWith(500);
+    expect(reply.send).toHaveBeenCalledWith({
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: 'An error occurred while updating the supplier',
     });
-
-    expect(response.statusCode).toBe(500);
-    const body = response.json();
-    expect(body.error).toBe("Internal Server Error");
   });
 });

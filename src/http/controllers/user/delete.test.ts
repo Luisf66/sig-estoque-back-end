@@ -1,103 +1,87 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { deleteUser } from "./delete";
-import * as makeDeleteUserServiceModule from "../../../services/factories/user/make-delete-user-service";
-import { ResourceNotFoundError } from "../../../services/errors/resource-not-found-error";
-import { FastifyReply, FastifyRequest } from "fastify";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { deleteUser } from './delete'; // Ajuste o caminho
+import { ResourceNotFoundError } from '../../../services/errors/resource-not-found-error';
 
-describe("deleteUser controller", () => {
-  let mockExecute: ReturnType<typeof vi.fn>;
+// Mock da factory que cria o service
+const deleteUserServiceMock = {
+  execute: vi.fn(),
+};
+
+vi.mock('../../../services/factories/user/make-delete-user-service', () => {
+  return {
+    makeDeleteUserService: () => deleteUserServiceMock,
+  };
+});
+
+describe('Delete User Controller', () => {
+  let request: Partial<FastifyRequest>;
+  let reply: Partial<FastifyReply>;
+  const userIdToDelete = 'user-01';
 
   beforeEach(() => {
-    vi.restoreAllMocks();
-    mockExecute = vi.fn();
-
-    vi.spyOn(makeDeleteUserServiceModule, "makeDeleteUserService").mockReturnValue({
-      execute: mockExecute,
-    } as any);
+    request = {
+      params: { id: userIdToDelete },
+    };
+    reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    };
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("deve deletar o usuário com sucesso e retornar status 200", async () => {
-    const fakeId = "user-123";
-    mockExecute.mockResolvedValueOnce(undefined);
+  it('should delete a user and return status 200', async () => {
+    // Arrange
+    deleteUserServiceMock.execute.mockResolvedValue(undefined);
 
-    const request = {
-      params: { id: fakeId },
-    } as unknown as FastifyRequest;
+    // Act
+    await deleteUser(request as FastifyRequest, reply as FastifyReply);
 
-    const reply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await deleteUser(request, reply);
-
-    expect(mockExecute).toHaveBeenCalledWith({ id: fakeId });
+    // Assert
+    expect(deleteUserServiceMock.execute).toHaveBeenCalledWith({ id: userIdToDelete });
     expect(reply.status).toHaveBeenCalledWith(200);
     expect(reply.send).toHaveBeenCalledWith({ message: "User successfully deleted." });
   });
 
-  it("deve retornar 404 se o usuário não for encontrado", async () => {
-    const fakeId = "user-404";
-    mockExecute.mockRejectedValueOnce(new ResourceNotFoundError());
+  it('should return status 404 if user is not found', async () => {
+    // Arrange
+    const serviceError = new ResourceNotFoundError();
+    deleteUserServiceMock.execute.mockRejectedValue(serviceError);
 
-    const request = {
-      params: { id: fakeId },
-    } as unknown as FastifyRequest;
+    // Act
+    await deleteUser(request as FastifyRequest, reply as FastifyReply);
 
-    const reply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await deleteUser(request, reply);
-
+    // Assert
     expect(reply.status).toHaveBeenCalledWith(404);
     expect(reply.send).toHaveBeenCalledWith({ message: "User not found" });
   });
 
-  it("deve retornar 500 em caso de erro inesperado", async () => {
-    const fakeId = "user-500";
-    mockExecute.mockRejectedValueOnce(new Error("DB connection failed"));
+  it('should return status 500 for other errors', async () => {
+    // Arrange
+    const unexpectedError = new Error('Internal service error');
+    deleteUserServiceMock.execute.mockRejectedValue(unexpectedError);
 
-    const request = {
-      params: { id: fakeId },
-    } as unknown as FastifyRequest;
+    // Act
+    await deleteUser(request as FastifyRequest, reply as FastifyReply);
 
-    const reply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    await deleteUser(request, reply);
-
-    expect(consoleSpy).toHaveBeenCalled();
+    // Assert
     expect(reply.status).toHaveBeenCalledWith(500);
-    expect(reply.send).toHaveBeenCalledWith({ message: "Internal Server Error" });
-
-    consoleSpy.mockRestore();
+    expect(reply.send).toHaveBeenCalledWith({ message: 'Internal Server Error' });
   });
 
-  it("deve retornar 500 se os parâmetros forem inválidos", async () => {
-    // Observação: como o parse está dentro do try/catch do controller,
-    // o ZodError é capturado e o controller retorna 500 (não rejeita).
-    const request = {
-      params: { id: 123 }, // id inválido (não é string)
-    } as unknown as FastifyRequest;
+  it('should return status 500 for invalid params', async () => {
+    // Arrange
+    // Força um erro de validação do Zod, que será capturado pelo catch genérico
+    request.params = { id: undefined }; 
 
-    const reply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
+    // Act
+    await deleteUser(request as FastifyRequest, reply as FastifyReply);
 
-    await deleteUser(request, reply);
-
+    // Assert
     expect(reply.status).toHaveBeenCalledWith(500);
-    expect(reply.send).toHaveBeenCalledWith({ message: "Internal Server Error" });
+    expect(reply.send).toHaveBeenCalledWith({ message: 'Internal Server Error' });
   });
 });

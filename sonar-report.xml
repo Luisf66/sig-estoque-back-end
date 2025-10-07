@@ -1,339 +1,337 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testExecutions version="1">
   <file path="src/http/controllers/employee/create.test.ts">
-    <testCase name="Create Employee Controller - should create an employee successfully and return status 201" duration="14" />
+    <testCase name="Create Employee Controller - should create an employee successfully and return status 201" duration="11" />
     <testCase name="Create Employee Controller - should return status 409 when employee already exists" duration="2" />
-    <testCase name="Create Employee Controller - should throw an error if service fails unexpectedly" duration="4" />
+    <testCase name="Create Employee Controller - should throw an error if service fails unexpectedly" duration="3" />
   </file>
   <file path="src/http/controllers/employee/fetch-all.test.ts">
-    <testCase name="Fetch All Employees Controller - should fetch all employees successfully and return status 200" duration="8" />
-    <testCase name="Fetch All Employees Controller - should return status 500 when the service throws an error" duration="11" />
+    <testCase name="Fetch All Employees Controller - should fetch all employees successfully and return status 200" duration="15" />
+    <testCase name="Fetch All Employees Controller - should return status 500 when the service throws an error" duration="8" />
   </file>
   <file path="src/http/controllers/employee/find-by-id.test.ts">
-    <testCase name="Find Employee By Id Controller - should find an employee by id successfully and return status 200" duration="10" />
-    <testCase name="Find Employee By Id Controller - should return status 404 when the employee is not found" duration="5" />
-    <testCase name="Find Employee By Id Controller - should throw an error when the service fails unexpectedly" duration="2" />
-    <testCase name="Find Employee By Id Controller - should throw an error if params are invalid" duration="2" />
+    <testCase name="Find Employee By Id Controller - should find an employee by id successfully and return status 200" duration="8" />
+    <testCase name="Find Employee By Id Controller - should return status 404 when the employee is not found" duration="3" />
+    <testCase name="Find Employee By Id Controller - should throw an error when the service fails unexpectedly" duration="3" />
+    <testCase name="Find Employee By Id Controller - should throw an error if params are invalid" duration="5" />
   </file>
   <file path="src/http/controllers/employee/update.test.ts">
-    <testCase name="Update Employee Controller - should update an employee successfully and return status 200" duration="11" />
+    <testCase name="Update Employee Controller - should update an employee successfully and return status 200" duration="14" />
     <testCase name="Update Employee Controller - should handle optional password field correctly" duration="2" />
-    <testCase name="Update Employee Controller - should return status 500 when the service throws an error" duration="8" />
-    <testCase name="Update Employee Controller - should throw an error if body is invalid" duration="8" />
+    <testCase name="Update Employee Controller - should return status 500 when the service throws an error" duration="12" />
+    <testCase name="Update Employee Controller - should throw an error if body is invalid" duration="7" />
   </file>
   <file path="src/http/controllers/manager/create.test.ts">
-    <testCase name="Create Manager Controller - should create a manager successfully and return status 201" duration="20" />
-    <testCase name="Create Manager Controller - should return status 409 when email already exists" duration="5" />
+    <testCase name="Create Manager Controller - should create a manager successfully and return status 201" duration="10" />
+    <testCase name="Create Manager Controller - should return status 409 when email already exists" duration="4" />
     <testCase name="Create Manager Controller - should throw an error when the service fails unexpectedly" duration="3" />
     <testCase name="Create Manager Controller - should throw an error if body is invalid" duration="4" />
   </file>
   <file path="src/http/controllers/manager/fetch-all.test.ts">
-    <testCase name="Fetch All Managers Controller - should fetch all managers successfully and return status 200" duration="7" />
-    <testCase name="Fetch All Managers Controller - should return status 500 when the service throws an error" duration="10" />
+    <testCase name="Fetch All Managers Controller - should fetch all managers successfully and return status 200" duration="13" />
+    <testCase name="Fetch All Managers Controller - should return status 500 when the service throws an error" duration="11" />
   </file>
   <file path="src/http/controllers/manager/find-by-id.test.ts">
-    <testCase name="Find Manager By Id Controller - should find a manager by id successfully and return status 200" duration="14" />
-    <testCase name="Find Manager By Id Controller - should return status 404 when the manager is not found" duration="6" />
+    <testCase name="Find Manager By Id Controller - should find a manager by id successfully and return status 200" duration="19" />
+    <testCase name="Find Manager By Id Controller - should return status 404 when the manager is not found" duration="4" />
     <testCase name="Find Manager By Id Controller - should throw an error when the service fails unexpectedly" duration="3" />
-    <testCase name="Find Manager By Id Controller - should throw an error if params are invalid" duration="4" />
+    <testCase name="Find Manager By Id Controller - should throw an error if params are invalid" duration="5" />
   </file>
   <file path="src/http/controllers/manager/update.test.ts">
-    <testCase name="Update Manager Controller - should update a manager successfully and return status 200" duration="16" />
-    <testCase name="Update Manager Controller - should return status 500 when the service throws an error" duration="13" />
-    <testCase name="Update Manager Controller - should return status 500 if body is invalid" duration="7" />
+    <testCase name="Update Manager Controller - should update a manager successfully and return status 200" duration="12" />
+    <testCase name="Update Manager Controller - should return status 500 when the service throws an error" duration="12" />
+    <testCase name="Update Manager Controller - should return status 500 if body is invalid" duration="8" />
   </file>
   <file path="src/http/controllers/product/create.test.ts">
-    <testCase name="Create Product Controller - should create a product successfully and return status 201" duration="11" />
-    <testCase name="Create Product Controller - should throw an error if body is invalid" duration="4" />
+    <testCase name="Create Product Controller - should create a product successfully and return status 201" duration="22" />
+    <testCase name="Create Product Controller - should throw an error if body is invalid" duration="7" />
     <testCase name="Create Product Controller - should throw an error when the service fails" duration="1" />
   </file>
   <file path="src/http/controllers/product/fetch-all.test.ts">
-    <testCase name="Fetch All Product Controller - should fetch all products successfully and return status 200" duration="15" />
+    <testCase name="Fetch All Product Controller - should fetch all products successfully and return status 200" duration="7" />
     <testCase name="Fetch All Product Controller - should throw an error when the service fails" duration="2" />
   </file>
   <file path="src/http/controllers/product/find-by-id.test.ts">
-    <testCase name="Find Product By Id Controller - should find a product by id successfully and return status 200" duration="17" />
-    <testCase name="Find Product By Id Controller - should return status 404 if the product is not found" duration="2" />
+    <testCase name="Find Product By Id Controller - should find a product by id successfully and return status 200" duration="54" />
+    <testCase name="Find Product By Id Controller - should return status 404 if the product is not found" duration="5" />
     <testCase name="Find Product By Id Controller - should throw an error if params are invalid" duration="7" />
     <testCase name="Find Product By Id Controller - should throw an error when the service fails unexpectedly" duration="1" />
   </file>
   <file path="src/http/controllers/product/inactivate.test.ts">
-    <testCase name="Inactivate Product Controller - should inactivate a product successfully and return status 204" duration="17" />
+    <testCase name="Inactivate Product Controller - should inactivate a product successfully and return status 204" duration="10" />
     <testCase name="Inactivate Product Controller - should return status 404 if the product to inactivate is not found" duration="2" />
-    <testCase name="Inactivate Product Controller - should throw an error when the service fails unexpectedly" duration="3" />
+    <testCase name="Inactivate Product Controller - should throw an error when the service fails unexpectedly" duration="9" />
   </file>
   <file path="src/http/controllers/product/patch.test.ts">
-    <testCase name="Patch Product Controller - should patch a product successfully and return status 200" duration="15" />
-    <testCase name="Patch Product Controller - should return status 404 if the product to patch is not found" duration="2" />
-    <testCase name="Patch Product Controller - should throw an error if body is invalid" duration="7" />
-    <testCase name="Patch Product Controller - should throw an error when the service fails unexpectedly" duration="2" />
+    <testCase name="Patch Product Controller - should patch a product successfully and return status 200" duration="12" />
+    <testCase name="Patch Product Controller - should return status 404 if the product to patch is not found" duration="1" />
+    <testCase name="Patch Product Controller - should throw an error if body is invalid" duration="4" />
+    <testCase name="Patch Product Controller - should throw an error when the service fails unexpectedly" duration="1" />
   </file>
   <file path="src/http/controllers/purchase/create.test.ts">
-    <testCase name="Create Purchase Controller - should create a purchase successfully and return status 201" duration="12" />
-    <testCase name="Create Purchase Controller - should throw an error if body is invalid" duration="4" />
+    <testCase name="Create Purchase Controller - should create a purchase successfully and return status 201" duration="16" />
+    <testCase name="Create Purchase Controller - should throw an error if body is invalid" duration="5" />
     <testCase name="Create Purchase Controller - should throw an error when the service fails" duration="1" />
   </file>
   <file path="src/http/controllers/purchase/fetch-all-by-supplier-id.test.ts">
-    <testCase name="Fetch All Purchase by Supplier Id Controller - should fetch purchases successfully and return status 200" duration="8" />
-    <testCase name="Fetch All Purchase by Supplier Id Controller - should return an empty array if no purchases are found for the supplier" duration="1" />
-    <testCase name="Fetch All Purchase by Supplier Id Controller - should throw an error when the service fails" duration="2" />
+    <testCase name="Fetch All Purchase by Supplier Id Controller - should fetch purchases successfully and return status 200" duration="10" />
+    <testCase name="Fetch All Purchase by Supplier Id Controller - should return an empty array if no purchases are found for the supplier" duration="3" />
+    <testCase name="Fetch All Purchase by Supplier Id Controller - should throw an error when the service fails" duration="9" />
   </file>
   <file path="src/http/controllers/purchase/fetch-all-by-user-id.test.ts">
-    <testCase name="Fetch All Purchase by User Id Controller - should fetch purchases successfully and return status 200" duration="9" />
-    <testCase name="Fetch All Purchase by User Id Controller - should return an empty array if no purchases are found for the user" duration="2" />
-    <testCase name="Fetch All Purchase by User Id Controller - should throw an error when the service fails" duration="3" />
+    <testCase name="Fetch All Purchase by User Id Controller - should fetch purchases successfully and return status 200" duration="23" />
+    <testCase name="Fetch All Purchase by User Id Controller - should return an empty array if no purchases are found for the user" duration="1" />
+    <testCase name="Fetch All Purchase by User Id Controller - should throw an error when the service fails" duration="2" />
   </file>
   <file path="src/http/controllers/purchase/fetch-all.test.ts">
     <testCase name="Fetch All Purchase Controller - should fetch all purchases successfully and return status 200" duration="10" />
     <testCase name="Fetch All Purchase Controller - should throw an error when the service fails" duration="3" />
   </file>
   <file path="src/http/controllers/purchase/find-by-id.test.ts">
-    <testCase name="Find Purchase By Id Controller - should find a purchase by id and return status 200" duration="17" />
-    <testCase name="Find Purchase By Id Controller - should return status 404 when the purchase is not found" duration="5" />
+    <testCase name="Find Purchase By Id Controller - should find a purchase by id and return status 200" duration="10" />
+    <testCase name="Find Purchase By Id Controller - should return status 404 when the purchase is not found" duration="2" />
     <testCase name="Find Purchase By Id Controller - should return status 500 for other unexpected errors" duration="2" />
   </file>
   <file path="src/http/controllers/sale/create.test.ts">
-    <testCase name="Create Sale Controller - should create a sale and return status 201" duration="11" />
-    <testCase name="Create Sale Controller - should return status 400 if the body is invalid" duration="2" />
-    <testCase name="Create Sale Controller - should return status 500 if the service fails" duration="6" />
+    <testCase name="Create Sale Controller - should create a sale and return status 201" duration="33" />
+    <testCase name="Create Sale Controller - should return status 400 if the body is invalid" duration="6" />
+    <testCase name="Create Sale Controller - should return status 500 if the service fails" duration="13" />
   </file>
   <file path="src/http/controllers/sale/fetch-all-by-user-id.test.ts">
-    <testCase name="Fetch All Sale By User Id Controller - should fetch all sales for a user and return status 200" duration="10" />
-    <testCase name="Fetch All Sale By User Id Controller - should return status 500 when the service fails" duration="8" />
+    <testCase name="Fetch All Sale By User Id Controller - should fetch all sales for a user and return status 200" duration="8" />
+    <testCase name="Fetch All Sale By User Id Controller - should return status 500 when the service fails" duration="10" />
   </file>
   <file path="src/http/controllers/sale/fetch-all.test.ts">
-    <testCase name="Fetch All Sale Controller - should fetch all sales and return status 200" duration="13" />
+    <testCase name="Fetch All Sale Controller - should fetch all sales and return status 200" duration="11" />
     <testCase name="Fetch All Sale Controller - should return status 500 when the service fails" duration="9" />
   </file>
   <file path="src/http/controllers/sale/find-by-id.test.ts">
-    <testCase name="Find Sale By Id Controller - should find a sale by id and return status 200" duration="10" />
+    <testCase name="Find Sale By Id Controller - should find a sale by id and return status 200" duration="6" />
     <testCase name="Find Sale By Id Controller - should return status 404 when the sale is not found" duration="1" />
-    <testCase name="Find Sale By Id Controller - should return status 500 when the service fails" duration="22" />
+    <testCase name="Find Sale By Id Controller - should return status 500 when the service fails" duration="8" />
   </file>
   <file path="src/http/controllers/supplier/create.test.ts">
-    <testCase name="CreateSupplier Controller - deve criar um fornecedor com sucesso (201)" duration="15" />
-    <testCase name="CreateSupplier Controller - deve retornar 400 se os dados forem inválidos (ZodError)" duration="16" />
-    <testCase name="CreateSupplier Controller - deve retornar 500 se ocorrer um erro inesperado" duration="4" />
+    <testCase name="Create Supplier Controller - should create a supplier and return status 201" duration="14" />
+    <testCase name="Create Supplier Controller - should return status 400 for invalid request data" duration="17" />
+    <testCase name="Create Supplier Controller - should return status 500 when the service fails" duration="3" />
   </file>
   <file path="src/http/controllers/supplier/delete.test.ts">
-    <testCase name="deleteSupplier Controller - deve deletar um fornecedor com sucesso e retornar 204" duration="10" />
-    <testCase name="deleteSupplier Controller - deve lançar erro se o serviço falhar (erro interno)" duration="8" />
+    <testCase name="Delete Supplier Controller - should delete a supplier and return status 204" duration="8" />
+    <testCase name="Delete Supplier Controller - should throw an error if the service fails" duration="4" />
   </file>
   <file path="src/http/controllers/supplier/fetch-all.test.ts">
-    <testCase name="fetchAllSupplier Controller - deve retornar 200 e a lista de fornecedores com sucesso" duration="7" />
-    <testCase name="fetchAllSupplier Controller - deve lançar erro se o serviço falhar" duration="3" />
+    <testCase name="Fetch All Supplier Controller - should fetch all suppliers and return status 200" duration="11" />
+    <testCase name="Fetch All Supplier Controller - should throw an error if the service fails" duration="6" />
   </file>
   <file path="src/http/controllers/supplier/fetch-many-by-company-name.test.ts">
-    <testCase name="fetchManyByCompanyName Controller - deve retornar 200 e os fornecedores filtrados pelo companyName" duration="15" />
-    <testCase name="fetchManyByCompanyName Controller - deve retornar 500 se ocorrer um erro no serviço" duration="15" />
+    <testCase name="Fetch Many by Company Name Controller - should fetch suppliers by company name and return status 200" duration="9" />
+    <testCase name="Fetch Many by Company Name Controller - should return status 500 if the service fails" duration="13" />
   </file>
   <file path="src/http/controllers/supplier/fetch-many-by-social-name.test.ts">
-    <testCase name="fetchManyBySocialName Controller - deve retornar 200 e os fornecedores filtrados pelo socialName" duration="9" />
-    <testCase name="fetchManyBySocialName Controller - deve retornar 500 se ocorrer um erro no serviço" duration="14" />
+    <testCase name="Fetch Many by Social Name Controller - should fetch suppliers by social name and return status 200" duration="9" />
+    <testCase name="Fetch Many by Social Name Controller - should return status 500 if the service fails" duration="13" />
   </file>
   <file path="src/http/controllers/supplier/find-by-id.test.ts">
-    <testCase name="findSupplierById Controller - deve retornar 200 e os dados do fornecedor quando encontrado" duration="9" />
-    <testCase name="findSupplierById Controller - deve retornar 500 se ocorrer um erro no serviço" duration="16" />
-    <testCase name="findSupplierById Controller - deve retornar 500 se o parâmetro id estiver ausente" duration="3" />
+    <testCase name="Find Supplier By Id Controller - should fetch a supplier by id and return status 200" duration="7" />
+    <testCase name="Find Supplier By Id Controller - should return status 500 if the service fails" duration="11" />
   </file>
   <file path="src/http/controllers/supplier/patch.test.ts">
-    <testCase name="patchSupplier controller - deve atualizar parcialmente um fornecedor com sucesso" duration="64" />
-    <testCase name="patchSupplier controller - deve retornar 400 se o corpo for inválido" duration="7" />
-    <testCase name="patchSupplier controller - deve retornar 500 se o serviço lançar um erro inesperado" duration="17" />
+    <testCase name="Patch Supplier Controller - should update a supplier and return status 200" duration="14" />
+    <testCase name="Patch Supplier Controller - should return status 400 for invalid body data" duration="4" />
+    <testCase name="Patch Supplier Controller - should return status 500 if the service fails" duration="16" />
   </file>
   <file path="src/http/controllers/user/authenticate.test.ts">
-    <testCase name="authenticateUser controller - deve autenticar o usuário com sucesso e retornar token" duration="26" />
-    <testCase name="authenticateUser controller - deve retornar 400 se as credenciais forem inválidas" duration="3" />
-    <testCase name="authenticateUser controller - deve lançar erro se o corpo da requisição for inválido" duration="12" />
-    <testCase name="authenticateUser controller - deve relançar erros inesperados" duration="2" />
+    <testCase name="Authenticate User Controller - should authenticate a user and return a token" duration="11" />
+    <testCase name="Authenticate User Controller - should return status 400 for invalid credentials" duration="2" />
+    <testCase name="Authenticate User Controller - should re-throw other errors" duration="3" />
   </file>
   <file path="src/http/controllers/user/delete.test.ts">
-    <testCase name="deleteUser controller - deve deletar o usuário com sucesso e retornar status 200" duration="17" />
-    <testCase name="deleteUser controller - deve retornar 404 se o usuário não for encontrado" duration="2" />
-    <testCase name="deleteUser controller - deve retornar 500 em caso de erro inesperado" duration="1" />
-    <testCase name="deleteUser controller - deve retornar 500 se os parâmetros forem inválidos" duration="13" />
+    <testCase name="Delete User Controller - should delete a user and return status 200" duration="15" />
+    <testCase name="Delete User Controller - should return status 404 if user is not found" duration="2" />
+    <testCase name="Delete User Controller - should return status 500 for other errors" duration="11" />
+    <testCase name="Delete User Controller - should return status 500 for invalid params" duration="5" />
   </file>
   <file path="src/http/controllers/user/fetch-all.test.ts">
-    <testCase name="fetchAllUsers controller - deve retornar 200 e a lista de usuários com sucesso" duration="16" />
-    <testCase name="fetchAllUsers controller - deve retornar 500 em caso de erro inesperado" duration="3" />
+    <testCase name="Fetch All Users Controller - should return a list of users and status 200" duration="13" />
+    <testCase name="Fetch All Users Controller - should return status 500 if the service fails" duration="13" />
   </file>
   <file path="src/http/controllers/user/find-by-id.test.ts">
-    <testCase name="findUserByid Controller - deve retornar 200 e o usuário quando encontrado" duration="5" />
-    <testCase name="findUserByid Controller - deve retornar 404 se o usuário não for encontrado (user = null)" duration="2" />
-    <testCase name="findUserByid Controller - deve retornar 404 se o serviço lançar ResourceNotFoundError" duration="2" />
-    <testCase name="findUserByid Controller - deve retornar 500 se ocorrer um erro inesperado" duration="8" />
+    <testCase name="Find User By Id Controller - should return a user and status 200" duration="11" />
+    <testCase name="Find User By Id Controller - should return status 404 if user is not found by service return" duration="2" />
+    <testCase name="Find User By Id Controller - should return status 404 if service throws ResourceNotFoundError" duration="1" />
+    <testCase name="Find User By Id Controller - should return status 500 for other errors" duration="17" />
   </file>
   <file path="src/http/controllers/user/get-user-profile.test.ts">
-    <testCase name="profile Controller - deve retornar 200 e os dados do usuário + manager quando o usuário for MANAGER" duration="15" />
-    <testCase name="profile Controller - deve retornar 404 se o role do usuário for inválido" duration="1" />
-    <testCase name="profile Controller - deve retornar 404 se o serviço getUserProfile lançar ResourceNotFoundError" duration="1" />
-    <testCase name="profile Controller - deve retornar 500 se ocorrer um erro inesperado" duration="9" />
+    <testCase name="Get User Profile Controller - should return user and manager profile for a MANAGER role" duration="8" />
+    <testCase name="Get User Profile Controller - should return 404 if user is not found" duration="4" />
+    <testCase name="Get User Profile Controller - should return 404 for an unsupported user role" duration="4" />
+    <testCase name="Get User Profile Controller - should return 500 for other unexpected errors" duration="11" />
   </file>
   <file path="src/services/employee/fetch-all-employee.test.ts">
-    <testCase name="FetchAllEmployeeService - deve retornar uma lista de employees com sucesso" duration="7" />
-    <testCase name="FetchAllEmployeeService - deve retornar uma lista vazia quando não houver employees" duration="3" />
-    <testCase name="FetchAllEmployeeService - deve lançar erro se o repositório falhar" duration="6" />
+    <testCase name="FetchAllEmployeeService - deve retornar uma lista de employees com sucesso" duration="6" />
+    <testCase name="FetchAllEmployeeService - deve retornar uma lista vazia quando não houver employees" duration="2" />
+    <testCase name="FetchAllEmployeeService - deve lançar erro se o repositório falhar" duration="5" />
   </file>
   <file path="src/services/employee/find-employee-by-id.test.ts">
-    <testCase name="FindEmployeeByIdService - deve retornar um employee quando o ID existir" duration="6" />
+    <testCase name="FindEmployeeByIdService - deve retornar um employee quando o ID existir" duration="8" />
     <testCase name="FindEmployeeByIdService - deve retornar null quando o employee não for encontrado" duration="1" />
-    <testCase name="FindEmployeeByIdService - deve lançar erro se o repositório falhar" duration="4" />
+    <testCase name="FindEmployeeByIdService - deve lançar erro se o repositório falhar" duration="5" />
   </file>
   <file path="src/services/employee/find-employee-by-user-id.test.ts">
-    <testCase name="FindEmployeeByUserId Service - deve retornar um employee quando o userId existir" duration="25" />
-    <testCase name="FindEmployeeByUserId Service - deve retornar null quando o employee não for encontrado" duration="3" />
-    <testCase name="FindEmployeeByUserId Service - deve lançar erro se o repositório falhar" duration="6" />
+    <testCase name="FindEmployeeByUserId Service - deve retornar um employee quando o userId existir" duration="7" />
+    <testCase name="FindEmployeeByUserId Service - deve retornar null quando o employee não for encontrado" duration="1" />
+    <testCase name="FindEmployeeByUserId Service - deve lançar erro se o repositório falhar" duration="4" />
   </file>
   <file path="src/services/employee/update-employee.test.ts">
-    <testCase name="UpdateEmployeeService - deve atualizar os dados do funcionário com nova senha" duration="63" />
-    <testCase name="UpdateEmployeeService - deve atualizar os dados do funcionário sem alterar a senha" duration="16" />
+    <testCase name="UpdateEmployeeService - deve atualizar os dados do funcionário com nova senha" duration="48" />
+    <testCase name="UpdateEmployeeService - deve atualizar os dados do funcionário sem alterar a senha" duration="17" />
     <testCase name="UpdateEmployeeService - deve lançar erro se o usuário não for encontrado" duration="3" />
   </file>
   <file path="src/services/manager/create-manager.test.ts">
-    <testCase name="CreateManagerService - deve criar um novo gerente com sucesso" duration="313" />
+    <testCase name="CreateManagerService - deve criar um novo gerente com sucesso" duration="333" />
     <testCase name="CreateManagerService - deve lançar erro ao tentar criar um gerente com email já existente" duration="2" />
   </file>
   <file path="src/services/manager/fetch-all-manager.test.ts">
-    <testCase name="FetchAllManagerService - deve retornar todos os gerentes cadastrados" duration="7" />
-    <testCase name="FetchAllManagerService - deve retornar um array vazio se não houver gerentes" duration="2" />
+    <testCase name="FetchAllManagerService - deve retornar todos os gerentes cadastrados" duration="6" />
+    <testCase name="FetchAllManagerService - deve retornar um array vazio se não houver gerentes" duration="7" />
   </file>
   <file path="src/services/manager/find-manager-by-id.test.ts">
-    <testCase name="FindManagerByIdService - deve encontrar um gerente pelo ID" duration="6" />
-    <testCase name="FindManagerByIdService - deve lançar NoRecordsFoundError se o gerente não for encontrado" duration="3" />
+    <testCase name="FindManagerByIdService - deve encontrar um gerente pelo ID" duration="7" />
+    <testCase name="FindManagerByIdService - deve lançar NoRecordsFoundError se o gerente não for encontrado" duration="2" />
   </file>
   <file path="src/services/manager/find-manager-by-user-id.test.ts">
-    <testCase name="FindManagerByUserId Service - deve retornar o gerente correspondente ao userId" duration="5" />
-    <testCase name="FindManagerByUserId Service - deve retornar null se não existir gerente para o userId" duration="1" />
+    <testCase name="FindManagerByUserId Service - deve retornar o gerente correspondente ao userId" duration="7" />
+    <testCase name="FindManagerByUserId Service - deve retornar null se não existir gerente para o userId" duration="2" />
   </file>
   <file path="src/services/manager/update-manager.test.ts">
-    <testCase name="UpdateManagerService - deve atualizar os dados de um gerente existente (sem alterar senha)" duration="55" />
-    <testCase name="UpdateManagerService - deve atualizar os dados de um gerente existente e alterar a senha" duration="45" />
-    <testCase name="UpdateManagerService - deve lançar erro se o usuário não existir" duration="6" />
-    <testCase name="UpdateManagerService - deve lançar erro se o manager não existir" duration="13" />
+    <testCase name="UpdateManagerService - deve atualizar os dados de um gerente existente (sem alterar senha)" duration="38" />
+    <testCase name="UpdateManagerService - deve atualizar os dados de um gerente existente e alterar a senha" duration="28" />
+    <testCase name="UpdateManagerService - deve lançar erro se o usuário não existir" duration="2" />
+    <testCase name="UpdateManagerService - deve lançar erro se o manager não existir" duration="23" />
   </file>
   <file path="src/services/product/create-product.test.ts">
-    <testCase name="CreateProductService - deve criar um novo produto com sucesso" duration="13" />
-    <testCase name="CreateProductService - deve permitir criar múltiplos produtos" duration="2" />
+    <testCase name="CreateProductService - deve criar um novo produto com sucesso" duration="19" />
+    <testCase name="CreateProductService - deve permitir criar múltiplos produtos" duration="7" />
   </file>
   <file path="src/services/product/fetch-all-product.test.ts">
     <testCase name="FetchAllProductService - deve retornar uma lista vazia quando não houver produtos" duration="4" />
     <testCase name="FetchAllProductService - deve retornar todos os produtos cadastrados" duration="5" />
   </file>
   <file path="src/services/product/find-product-by-id.test.ts">
-    <testCase name="FindProductByIdService - deve retornar o produto quando ele existir e estiver ativo" duration="5" />
+    <testCase name="FindProductByIdService - deve retornar o produto quando ele existir e estiver ativo" duration="4" />
     <testCase name="FindProductByIdService - deve lançar ResourceNotFoundError se o produto não existir" duration="2" />
     <testCase name="FindProductByIdService - deve lançar InactiveError se o produto estiver inativo" duration="1" />
   </file>
   <file path="src/services/product/inactivate-product.test.ts">
-    <testCase name="InactivateProductService - deve inativar um produto existente" duration="5" />
-    <testCase name="InactivateProductService - deve lançar erro se o produto não existir" duration="2" />
+    <testCase name="InactivateProductService - deve inativar um produto existente" duration="4" />
+    <testCase name="InactivateProductService - deve lançar erro se o produto não existir" duration="3" />
   </file>
   <file path="src/services/product/patch-product.test.ts">
-    <testCase name="PatchProductService - deve atualizar parcialmente um produto ativo com sucesso" duration="4" />
-    <testCase name="PatchProductService - deve lançar ResourceNotFoundError se o produto não existir" duration="3" />
+    <testCase name="PatchProductService - deve atualizar parcialmente um produto ativo com sucesso" duration="6" />
+    <testCase name="PatchProductService - deve lançar ResourceNotFoundError se o produto não existir" duration="2" />
     <testCase name="PatchProductService - deve lançar InactiveError se o produto estiver inativo" duration="1" />
   </file>
   <file path="src/services/product/reduce-product-stock.test.ts">
-    <testCase name="ReduceProductStockService - deve reduzir o estoque de um produto com sucesso" duration="13" />
-    <testCase name="ReduceProductStockService - deve lançar ResourceNotFoundError se o produto não existir" duration="5" />
-    <testCase name="ReduceProductStockService - deve lançar erro se quantity_in_stock for null" duration="3" />
+    <testCase name="ReduceProductStockService - deve reduzir o estoque de um produto com sucesso" duration="6" />
+    <testCase name="ReduceProductStockService - deve lançar ResourceNotFoundError se o produto não existir" duration="2" />
+    <testCase name="ReduceProductStockService - deve lançar erro se quantity_in_stock for null" duration="2" />
     <testCase name="ReduceProductStockService - deve lançar erro se a quantidade solicitada for maior que o estoque" duration="1" />
   </file>
   <file path="src/services/purchase/create-purchase.test.ts">
-    <testCase name="CreatePurchaseService - deve criar uma compra com sucesso e atualizar estoque" duration="8" />
-    <testCase name="CreatePurchaseService - deve lançar erro se algum produto não for encontrado" duration="4" />
+    <testCase name="CreatePurchaseService - deve criar uma compra com sucesso e atualizar estoque" duration="12" />
+    <testCase name="CreatePurchaseService - deve lançar erro se algum produto não for encontrado" duration="22" />
     <testCase name="CreatePurchaseService - deve lançar erro se algum produto estiver inativo" duration="1" />
   </file>
   <file path="src/services/purchase/fetch-all-purchase-by-supplier-id.test.ts">
-    <testCase name="FetchAllPurchaseBySupplierIdService - deve retornar todas as compras de um fornecedor válido" duration="11" />
+    <testCase name="FetchAllPurchaseBySupplierIdService - deve retornar todas as compras de um fornecedor válido" duration="10" />
     <testCase name="FetchAllPurchaseBySupplierIdService - deve lançar ResourceNotFoundError se o fornecedor não for encontrado" duration="3" />
   </file>
   <file path="src/services/purchase/fetch-all-purchase-by-user-id.test.ts">
-    <testCase name="FetchAllPurchaseByUserIdService - deve retornar todas as compras de um usuário válido" duration="9" />
-    <testCase name="FetchAllPurchaseByUserIdService - deve lançar ResourceNotFoundError se o usuário não for encontrado" duration="4" />
+    <testCase name="FetchAllPurchaseByUserIdService - deve retornar todas as compras de um usuário válido" duration="25" />
+    <testCase name="FetchAllPurchaseByUserIdService - deve lançar ResourceNotFoundError se o usuário não for encontrado" duration="9" />
   </file>
   <file path="src/services/purchase/fetch-all-purchase.test.ts">
-    <testCase name="FetchAllPurchaseService - deve retornar todas as compras" duration="7" />
+    <testCase name="FetchAllPurchaseService - deve retornar todas as compras" duration="5" />
     <testCase name="FetchAllPurchaseService - deve retornar um array vazio se não houver compras" duration="1" />
   </file>
   <file path="src/services/purchase/find-purchase-by-id.test.ts">
-    <testCase name="FindPurchaseByIdService - deve retornar a compra quando ela existir" duration="7" />
-    <testCase name="FindPurchaseByIdService - deve lançar ResourceNotFoundError se a compra não for encontrada" duration="4" />
+    <testCase name="FindPurchaseByIdService - deve retornar a compra quando ela existir" duration="17" />
+    <testCase name="FindPurchaseByIdService - deve lançar ResourceNotFoundError se a compra não for encontrada" duration="2" />
   </file>
   <file path="src/services/sale/create-sale.test.ts">
     <testCase name="CreateSaleService - deve criar uma venda com itens e atualizar o subtotal corretamente" duration="7" />
-    <testCase name="CreateSaleService - deve lançar erro se algum produto não for encontrado" duration="3" />
+    <testCase name="CreateSaleService - deve lançar erro se algum produto não for encontrado" duration="2" />
     <testCase name="CreateSaleService - deve lançar erro se o produto estiver inativo" duration="1" />
     <testCase name="CreateSaleService - deve lançar erro se o estoque for insuficiente" duration="1" />
-    <testCase name="CreateSaleService - deve lançar erro se a quantidade em estoque for nula" duration="1" />
+    <testCase name="CreateSaleService - deve lançar erro se a quantidade em estoque for nula" duration="0" />
   </file>
   <file path="src/services/sale/fetch-all-sale-by-user-id.test.ts">
-    <testCase name="FetchAllSaleByUserIdService - deve buscar todas as vendas de um usuário existente" duration="6" />
-    <testCase name="FetchAllSaleByUserIdService - deve lançar erro se o usuário não for encontrado" duration="3" />
-    <testCase name="FetchAllSaleByUserIdService - deve retornar um array vazio se o usuário não tiver vendas" duration="1" />
+    <testCase name="FetchAllSaleByUserIdService - deve buscar todas as vendas de um usuário existente" duration="10" />
+    <testCase name="FetchAllSaleByUserIdService - deve lançar erro se o usuário não for encontrado" duration="2" />
+    <testCase name="FetchAllSaleByUserIdService - deve retornar um array vazio se o usuário não tiver vendas" duration="0" />
   </file>
   <file path="src/services/sale/fetch-all-sale.test.ts">
-    <testCase name="FetchAllSaleService - deve buscar todas as vendas existentes" duration="5" />
+    <testCase name="FetchAllSaleService - deve buscar todas as vendas existentes" duration="4" />
     <testCase name="FetchAllSaleService - deve retornar um array vazio quando não houver vendas" duration="2" />
   </file>
   <file path="src/services/sale/find-sale-by-id.test.ts">
-    <testCase name="FindSaleByIdService - deve retornar a venda correspondente ao ID fornecido" duration="12" />
-    <testCase name="FindSaleByIdService - deve lançar ResourceNotFoundError se a venda não for encontrada" duration="5" />
+    <testCase name="FindSaleByIdService - deve retornar a venda correspondente ao ID fornecido" duration="7" />
+    <testCase name="FindSaleByIdService - deve lançar ResourceNotFoundError se a venda não for encontrada" duration="1" />
   </file>
   <file path="src/services/supplier/create-supplier.test.ts">
-    <testCase name="CreateSupplierService - deve criar um novo fornecedor com os dados fornecidos" duration="20" />
+    <testCase name="CreateSupplierService - deve criar um novo fornecedor com os dados fornecidos" duration="6" />
   </file>
   <file path="src/services/supplier/delete-supplier.test.ts">
-    <testCase name="DeleteSupplierService - deve deletar um fornecedor existente pelo ID" duration="5" />
+    <testCase name="DeleteSupplierService - deve deletar um fornecedor existente pelo ID" duration="4" />
     <testCase name="DeleteSupplierService - deve lançar NoRecordsFoundError ao tentar deletar um fornecedor inexistente" duration="3" />
   </file>
   <file path="src/services/supplier/fetch-all-supplier.test.ts">
-    <testCase name="FetchAllSupplierService - deve retornar uma lista de fornecedores cadastrados" duration="7" />
+    <testCase name="FetchAllSupplierService - deve retornar uma lista de fornecedores cadastrados" duration="6" />
     <testCase name="FetchAllSupplierService - deve retornar um array vazio se não houver fornecedores" duration="1" />
   </file>
   <file path="src/services/supplier/fetch-many-supplier-by-company-name.test.ts">
-    <testCase name="FetchManySupplierByCompanyNameService - deve retornar fornecedores que contenham parte do nome da empresa" duration="7" />
+    <testCase name="FetchManySupplierByCompanyNameService - deve retornar fornecedores que contenham parte do nome da empresa" duration="9" />
     <testCase name="FetchManySupplierByCompanyNameService - deve retornar um array vazio se nenhum fornecedor corresponder" duration="1" />
   </file>
   <file path="src/services/supplier/fetch-many-supplier-by-social-name.test.ts">
-    <testCase name="FetchManySupplierBySocialNameService - deve retornar fornecedores que contenham parte do nome social" duration="6" />
-    <testCase name="FetchManySupplierBySocialNameService - deve lançar NoRecordsFoundError se nenhum fornecedor corresponder ao nome social" duration="2" />
+    <testCase name="FetchManySupplierBySocialNameService - deve retornar fornecedores que contenham parte do nome social" duration="7" />
+    <testCase name="FetchManySupplierBySocialNameService - deve lançar NoRecordsFoundError se nenhum fornecedor corresponder ao nome social" duration="4" />
   </file>
   <file path="src/services/supplier/find-supplier-by-id.test.ts">
-    <testCase name="FindSupplierByIdService - deve retornar um fornecedor ao buscar por ID válido" duration="3" />
-    <testCase name="FindSupplierByIdService - deve lançar NoRecordsFoundError ao buscar um ID inexistente" duration="1" />
+    <testCase name="FindSupplierByIdService - deve retornar um fornecedor ao buscar por ID válido" duration="6" />
+    <testCase name="FindSupplierByIdService - deve lançar NoRecordsFoundError ao buscar um ID inexistente" duration="3" />
     <testCase name="FindSupplierByIdService - deve cobrir métodos auxiliares do InMemorySupplierRepository" duration="1" />
   </file>
   <file path="src/services/supplier/patch-supplier.test.ts">
-    <testCase name="PatchSupplierService - deve atualizar parcialmente os dados de um fornecedor existente" duration="10" />
-    <testCase name="PatchSupplierService - deve lançar NoRecordsFoundError ao tentar atualizar fornecedor inexistente" duration="3" />
+    <testCase name="PatchSupplierService - deve atualizar parcialmente os dados de um fornecedor existente" duration="4" />
+    <testCase name="PatchSupplierService - deve lançar NoRecordsFoundError ao tentar atualizar fornecedor inexistente" duration="2" />
     <testCase name="PatchSupplierService - deve cobrir métodos auxiliares do InMemorySupplierRepository" duration="2" />
   </file>
   <file path="src/services/user/delete-user.test.ts">
     <testCase name="DeleteUserService - deve deletar um usuário existente e retornar seus dados" duration="4" />
-    <testCase name="DeleteUserService - deve retornar null ao tentar deletar um usuário inexistente" duration="0" />
+    <testCase name="DeleteUserService - deve retornar null ao tentar deletar um usuário inexistente" duration="1" />
     <testCase name="DeleteUserService - deve encontrar usuário pelo email antes de deletar" duration="1" />
     <testCase name="DeleteUserService - deve retornar null ao tentar atualizar usuário inexistente" duration="0" />
     <testCase name="DeleteUserService - deve atualizar dados do usuário corretamente" duration="1" />
     <testCase name="DeleteUserService - deve retornar todos os usuários com findMany" duration="3" />
   </file>
   <file path="src/services/user/get-all-users.test.ts">
-    <testCase name="GetAllUsersService - deve retornar todos os usuários cadastrados" duration="6" />
+    <testCase name="GetAllUsersService - deve retornar todos os usuários cadastrados" duration="7" />
     <testCase name="GetAllUsersService - deve retornar um array vazio se não houver usuários" duration="1" />
     <testCase name="GetAllUsersService - deve encontrar um usuário pelo email" duration="1" />
     <testCase name="GetAllUsersService - deve retornar null ao procurar por email inexistente" duration="0" />
     <testCase name="GetAllUsersService - deve encontrar um usuário pelo ID" duration="1" />
-    <testCase name="GetAllUsersService - deve retornar null ao procurar por ID inexistente" duration="1" />
+    <testCase name="GetAllUsersService - deve retornar null ao procurar por ID inexistente" duration="0" />
     <testCase name="GetAllUsersService - deve deletar um usuário existente" duration="1" />
-    <testCase name="GetAllUsersService - deve retornar null ao tentar deletar usuário inexistente" duration="0" />
+    <testCase name="GetAllUsersService - deve retornar null ao tentar deletar usuário inexistente" duration="1" />
     <testCase name="GetAllUsersService - deve atualizar um usuário existente" duration="1" />
-    <testCase name="GetAllUsersService - deve retornar null ao tentar atualizar usuário inexistente" duration="0" />
+    <testCase name="GetAllUsersService - deve retornar null ao tentar atualizar usuário inexistente" duration="1" />
   </file>
   <file path="src/services/user/get-user-by-id.test.ts">
     <testCase name="GetUserByIdService - deve retornar um usuário quando o ID for válido" duration="4" />
-    <testCase name="GetUserByIdService - deve lançar ResourceNotFoundError se o usuário não existir" duration="1" />
+    <testCase name="GetUserByIdService - deve lançar ResourceNotFoundError se o usuário não existir" duration="2" />
     <testCase name="GetUserByIdService - deve listar usuários usando findMany" duration="0" />
-    <testCase name="GetUserByIdService - deve atualizar um usuário existente" duration="0" />
+    <testCase name="GetUserByIdService - deve atualizar um usuário existente" duration="1" />
     <testCase name="GetUserByIdService - deve deletar um usuário existente" duration="0" />
     <testCase name="GetUserByIdService - deve retornar null ao tentar atualizar usuário inexistente" duration="0" />
     <testCase name="GetUserByIdService - deve retornar null ao tentar deletar usuário inexistente" duration="0" />
@@ -341,28 +339,28 @@
     <testCase name="GetUserByIdService - deve retornar null ao buscar por email inexistente" duration="0" />
   </file>
   <file path="src/services/user/get-user-profile.test.ts">
-    <testCase name="GetUserProfileService - deve retornar o perfil do usuário quando o ID for válido" duration="5" />
-    <testCase name="GetUserProfileService - deve lançar ResourceNotFoundError se o usuário não existir" duration="1" />
-    <testCase name="GetUserProfileService - deve listar usuários usando findMany" duration="0" />
-    <testCase name="GetUserProfileService - deve atualizar um usuário existente" duration="0" />
-    <testCase name="GetUserProfileService - deve deletar um usuário existente" duration="0" />
+    <testCase name="GetUserProfileService - deve retornar o perfil do usuário quando o ID for válido" duration="7" />
+    <testCase name="GetUserProfileService - deve lançar ResourceNotFoundError se o usuário não existir" duration="2" />
+    <testCase name="GetUserProfileService - deve listar usuários usando findMany" duration="1" />
+    <testCase name="GetUserProfileService - deve atualizar um usuário existente" duration="1" />
+    <testCase name="GetUserProfileService - deve deletar um usuário existente" duration="1" />
     <testCase name="GetUserProfileService - deve retornar null ao tentar atualizar usuário inexistente" duration="0" />
     <testCase name="GetUserProfileService - deve retornar null ao tentar deletar usuário inexistente" duration="0" />
     <testCase name="GetUserProfileService - deve encontrar um usuário pelo email usando findByEmail" duration="0" />
     <testCase name="GetUserProfileService - deve retornar null ao buscar por email inexistente" duration="0" />
   </file>
   <file path="src/services/user/user-authenticate.test.ts">
-    <testCase name="UserAuthenticateService - deve autenticar o usuário com credenciais corretas" duration="32" />
+    <testCase name="UserAuthenticateService - deve autenticar o usuário com credenciais corretas" duration="38" />
     <testCase name="UserAuthenticateService - deve lançar InvalidCredentialError se o e-mail não existir" duration="2" />
-    <testCase name="UserAuthenticateService - deve lançar InvalidCredentialError se a senha estiver incorreta" duration="22" />
-    <testCase name="UserAuthenticateService - deve listar todos os usuários com findMany" duration="14" />
-    <testCase name="UserAuthenticateService - deve encontrar um usuário pelo ID usando findById" duration="10" />
+    <testCase name="UserAuthenticateService - deve lançar InvalidCredentialError se a senha estiver incorreta" duration="18" />
+    <testCase name="UserAuthenticateService - deve listar todos os usuários com findMany" duration="18" />
+    <testCase name="UserAuthenticateService - deve encontrar um usuário pelo ID usando findById" duration="17" />
     <testCase name="UserAuthenticateService - deve retornar null ao buscar ID inexistente" duration="0" />
-    <testCase name="UserAuthenticateService - deve atualizar um usuário existente" duration="9" />
-    <testCase name="UserAuthenticateService - deve retornar null ao tentar atualizar usuário inexistente" duration="1" />
-    <testCase name="UserAuthenticateService - deve deletar um usuário existente" duration="9" />
+    <testCase name="UserAuthenticateService - deve atualizar um usuário existente" duration="10" />
+    <testCase name="UserAuthenticateService - deve retornar null ao tentar atualizar usuário inexistente" duration="0" />
+    <testCase name="UserAuthenticateService - deve deletar um usuário existente" duration="11" />
     <testCase name="UserAuthenticateService - deve retornar null ao tentar deletar usuário inexistente" duration="0" />
-    <testCase name="UserAuthenticateService - deve encontrar um usuário pelo email com findByEmail" duration="10" />
+    <testCase name="UserAuthenticateService - deve encontrar um usuário pelo email com findByEmail" duration="12" />
     <testCase name="UserAuthenticateService - deve retornar null ao buscar por email inexistente" duration="1" />
   </file>
 </testExecutions>

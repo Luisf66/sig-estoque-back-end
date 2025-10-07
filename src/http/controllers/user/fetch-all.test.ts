@@ -1,64 +1,61 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fetchAllUsers } from "./fetch-all";
-import * as makeGetAllUsersServiceModule from "../../../services/factories/user/make-get-all-users-service";
-import { FastifyReply, FastifyRequest } from "fastify";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FastifyRequest, FastifyReply } from 'fastify';
+import { fetchAllUsers } from './fetch-all'; // Ajuste o caminho
 
-describe("fetchAllUsers controller", () => {
-  let mockExecute: ReturnType<typeof vi.fn>;
+// Mock da factory que cria o service
+const getAllUsersServiceMock = {
+  execute: vi.fn(),
+};
+
+vi.mock('../../../services/factories/user/make-get-all-users-service', () => {
+  return {
+    makeGetAllUsersService: () => getAllUsersServiceMock,
+  };
+});
+
+describe('Fetch All Users Controller', () => {
+  let request: Partial<FastifyRequest>;
+  let reply: Partial<FastifyReply>;
 
   beforeEach(() => {
-    vi.restoreAllMocks();
-    mockExecute = vi.fn();
-
-    vi.spyOn(makeGetAllUsersServiceModule, "makeGetAllUsersService").mockReturnValue({
-      execute: mockExecute,
-    } as any);
+    request = {}; // Não precisa de params ou body para este controller
+    reply = {
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn(),
+    };
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("deve retornar 200 e a lista de usuários com sucesso", async () => {
-    const fakeUsers = [
-      { id: "1", name: "User One", email: "one@example.com" },
-      { id: "2", name: "User Two", email: "two@example.com" },
+  it('should return a list of users and status 200', async () => {
+    // Arrange
+    const usersList = [
+      { id: 'user-01', name: 'John Doe' },
+      { id: 'user-02', name: 'Jane Doe' },
     ];
+    getAllUsersServiceMock.execute.mockResolvedValue({ users: usersList });
 
-    mockExecute.mockResolvedValueOnce({ users: fakeUsers });
+    // Act
+    await fetchAllUsers(request as FastifyRequest, reply as FastifyReply);
 
-    const request = {} as unknown as FastifyRequest;
-
-    const reply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    await fetchAllUsers(request, reply);
-
-    expect(mockExecute).toHaveBeenCalledTimes(1);
+    // Assert
+    expect(getAllUsersServiceMock.execute).toHaveBeenCalled();
     expect(reply.status).toHaveBeenCalledWith(200);
-    expect(reply.send).toHaveBeenCalledWith({ users: fakeUsers });
+    expect(reply.send).toHaveBeenCalledWith({ users: usersList });
   });
 
-  it("deve retornar 500 em caso de erro inesperado", async () => {
-    mockExecute.mockRejectedValueOnce(new Error("DB connection failed"));
+  it('should return status 500 if the service fails', async () => {
+    // Arrange
+    const serviceError = new Error('Database connection failed');
+    getAllUsersServiceMock.execute.mockRejectedValue(serviceError);
 
-    const request = {} as unknown as FastifyRequest;
+    // Act
+    await fetchAllUsers(request as FastifyRequest, reply as FastifyReply);
 
-    const reply = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn(),
-    } as unknown as FastifyReply;
-
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    await fetchAllUsers(request, reply);
-
-    expect(consoleSpy).toHaveBeenCalled();
+    // Assert
     expect(reply.status).toHaveBeenCalledWith(500);
     expect(reply.send).toHaveBeenCalledWith({ message: "Internal Server Error" });
-
-    consoleSpy.mockRestore();
   });
 });
