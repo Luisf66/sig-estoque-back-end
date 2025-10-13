@@ -19,6 +19,7 @@ export default defineConfig({
             'src/repositories/**',
             'src/@types/**',
             'src/services/factories/**',
+            'src/services/errors/**',
             'vite.config.mts',
             'vitest.config.ts',
             'vitest.workspace.ts',
