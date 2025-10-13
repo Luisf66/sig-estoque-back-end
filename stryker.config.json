@@ -14,6 +14,7 @@
     "src/services/**/*.ts",
     "src/http/controllers/**/*.ts",
     "!src/**/*.test.ts",
-    "!src/services/factories/**/*"
+    "!src/services/factories/**/*",
+    "!src/services/errors/**/*"
   ]
 }
